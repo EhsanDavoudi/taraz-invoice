@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>TarazInvoice</AssemblyName>
+    <RootNamespace>TarazInvoice</RootNamespace>
+    <AssemblyTitle>سامانه جامع صدور و مدیریت پیش‌فاکتور تراز</AssemblyTitle>
+    <Product>تـراز</Product>
+    <Version>0.1.0-pre-alpha</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>0.1.0-pre-alpha</InformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="TarazInvoice.Tests\**" />
+    <EmbeddedResource Remove="TarazInvoice.Tests\**" />
+    <None Remove="TarazInvoice.Tests\**" />
+    <Page Remove="TarazInvoice.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\logo.png" />
+    <Resource Include="Resources\logo.svg" />
+    <Resource Include="Resources\Fonts\*.ttf" />
+  </ItemGroup>
+
+</Project>

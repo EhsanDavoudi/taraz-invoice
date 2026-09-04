@@ -1,0 +1,38 @@
+## Build and output binaries
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+dist/
+
+## Visual Studio & IDE files
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+*.DotSettings.user
+
+## Test Results & Code Coverage
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+coverage.json
+*.cobertura.xml
+
+## Application Local Data
+Data/*.json
+
+## Local Tooling & Temporary Files
+.impeccable/
+*.log
+*.tmp
+*.bak
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
