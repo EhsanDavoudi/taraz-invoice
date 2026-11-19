@@ -599,6 +599,8 @@
             <converters:StatusToBgColorBrushConverter x:Key="StatusToBgColorBrushConverter"/>
             <converters:CurrencyFormatConverter x:Key="CurrencyFormatConverter"/>
             <converters:DecimalNumberConverter x:Key="DecimalNumberConverter"/>
+            <converters:NullablePercentConverter x:Key="NullablePercentConverter"/>
+            <converters:NullablePercentDisplayConverter x:Key="NullablePercentDisplayConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

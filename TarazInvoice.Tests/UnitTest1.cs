@@ -718,7 +718,7 @@ namespace TarazInvoice.Tests
                 Assert.Equal("یک", ws.Cell("F4").GetString());
 
                 // ۳. مشخصات مشتری و هدر
-                Assert.Contains("نام مشتری شرکت محترم پالود پارسیان", ws.Cell("A6").GetString());
+                Assert.Contains("نام مشتری: شرکت محترم پالود پارسیان", ws.Cell("A6").GetString());
 
                 // ۴. هدر جدول
                 Assert.Equal("ردیف", ws.Cell(9, 1).GetString());
@@ -1031,10 +1031,10 @@ namespace TarazInvoice.Tests
             };
 
             string pdfName = PrintPdfService.GetSafeInvoiceFileName(invoice, "pdf");
-            Assert.Equal("EXP-REZ-1002_شرکت پتروشیمی زاگرس_مهندس محمد رضایی.pdf", pdfName);
+            Assert.Equal("EXP-REZ-1002 - شرکت پتروشیمی زاگرس - مهندس محمد رضایی.pdf", pdfName);
 
             string excelName = PrintPdfService.GetSafeInvoiceFileName(invoice, "xlsx");
-            Assert.Equal("EXP-REZ-1002_شرکت پتروشیمی زاگرس_مهندس محمد رضایی.xlsx", excelName);
+            Assert.Equal("EXP-REZ-1002 - شرکت پتروشیمی زاگرس - مهندس محمد رضایی.xlsx", excelName);
         }
 
         [Fact]

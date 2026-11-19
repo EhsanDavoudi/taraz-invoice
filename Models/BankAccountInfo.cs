@@ -16,12 +16,12 @@ namespace TarazInvoice.Models
         {
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(AccountNumber))
-                parts.Add($"شماره حساب {AccountNumber}");
+                parts.Add($"شماره حساب {AccountNumber.Trim()}");
             
             if (!string.IsNullOrWhiteSpace(ShebaNumber))
             {
                 string sh = ShebaNumber.Trim();
-                parts.Add(sh.StartsWith("IR", StringComparison.OrdinalIgnoreCase) ? sh : $"IR{sh}");
+                parts.Add(sh.StartsWith("IR", StringComparison.OrdinalIgnoreCase) ? $"شماره شبا {sh}" : $"شماره شبا IR{sh}");
             }
 
             if (!string.IsNullOrWhiteSpace(BankName))
@@ -31,9 +31,9 @@ namespace TarazInvoice.Models
                 parts.Add($"شماره کارت {CardNumber.Trim()}");
 
             if (!string.IsNullOrWhiteSpace(OwnerName))
-                parts.Add(OwnerName.Trim());
+                parts.Add($"به نام {OwnerName.Trim()}");
 
-            return string.Join(" ", parts);
+            return string.Join("  ", parts);
         }
 
         public override string ToString() => ToFormattedTerm();

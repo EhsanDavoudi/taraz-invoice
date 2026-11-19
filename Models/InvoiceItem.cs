@@ -11,10 +11,10 @@ namespace TarazInvoice.Models
         private string _unit = "عدد";
         private decimal _quantity = 1;
         private decimal _rawPrice = 0;
-        private decimal _discountPercent = 0;
+        private decimal? _discountPercent = null;
         private decimal _discountAmount = 0;
         private bool _isDividedBy1Point1 = false;
-        private decimal _profitPercent = 0;
+        private decimal? _profitPercent = null;
         private decimal _profitAmount = 0;
         private decimal _finalUnitPrice = 0;
         private decimal _totalPrice = 0;
@@ -75,7 +75,7 @@ namespace TarazInvoice.Models
             }
         }
 
-        public decimal DiscountPercent
+        public decimal? DiscountPercent
         {
             get => _discountPercent;
             set
@@ -123,7 +123,7 @@ namespace TarazInvoice.Models
             }
         }
 
-        public decimal ProfitPercent
+        public decimal? ProfitPercent
         {
             get => _profitPercent;
             set
@@ -234,7 +234,8 @@ namespace TarazInvoice.Models
             _isCalculating = true;
             try
             {
-                _discountAmount = Math.Round(_rawPrice * (_discountPercent / 100m), 0);
+                decimal pct = _discountPercent ?? 0m;
+                _discountAmount = Math.Round(_rawPrice * (pct / 100m), 0);
                 OnPropertyChanged(nameof(DiscountAmount));
                 RecalculateTotalsInternal();
             }
@@ -272,7 +273,8 @@ namespace TarazInvoice.Models
             try
             {
                 decimal baseCost = BaseCost;
-                _profitAmount = Math.Round(baseCost * (_profitPercent / 100m), 0);
+                decimal pct = _profitPercent ?? 0m;
+                _profitAmount = Math.Round(baseCost * (pct / 100m), 0);
                 _finalUnitPrice = baseCost + _profitAmount;
                 _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
                 _totalProfit = Math.Round(_quantity * _profitAmount, 0);
@@ -352,9 +354,9 @@ namespace TarazInvoice.Models
         {
             decimal baseCost = BaseCost;
 
-            if (_profitPercent > 0)
+            if (_profitPercent.HasValue && _profitPercent.Value > 0)
             {
-                _profitAmount = Math.Round(baseCost * (_profitPercent / 100m), 0);
+                _profitAmount = Math.Round(baseCost * (_profitPercent.Value / 100m), 0);
                 _finalUnitPrice = baseCost + _profitAmount;
             }
             else if (_profitAmount > 0)
@@ -366,7 +368,6 @@ namespace TarazInvoice.Models
             {
                 _finalUnitPrice = baseCost;
                 _profitAmount = 0;
-                _profitPercent = 0;
             }
 
             _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);

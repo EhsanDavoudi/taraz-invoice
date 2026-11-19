@@ -24,6 +24,7 @@ namespace TarazInvoice.Services
         private readonly string _filePath;
         private DatabaseModel _data;
         private DateTime _lastWriteTimeUtc = DateTime.MinValue;
+        private long _lastFileSize = 0;
         private readonly FileSystemWatcher? _fileWatcher;
         private bool _isSavingInternal = false;
 
@@ -77,13 +78,16 @@ namespace TarazInvoice.Services
 
         public bool CheckAndReloadIfDiskChanged()
         {
+            if (_isSavingInternal) return false;
             lock (_lock)
             {
                 if (!File.Exists(_filePath)) return false;
                 try
                 {
-                    var currentDiskTime = File.GetLastWriteTimeUtc(_filePath);
-                    if (currentDiskTime > _lastWriteTimeUtc.AddMilliseconds(50))
+                    var fileInfo = new FileInfo(_filePath);
+                    var currentDiskTime = fileInfo.LastWriteTimeUtc;
+                    var currentLength = fileInfo.Length;
+                    if (currentDiskTime > _lastWriteTimeUtc.AddMilliseconds(20) || currentLength != _lastFileSize)
                     {
                         var reloaded = LoadFromFile();
                         _data = reloaded;
@@ -115,6 +119,7 @@ namespace TarazInvoice.Services
                         try
                         {
                             _lastWriteTimeUtc = File.GetLastWriteTimeUtc(_filePath);
+                            _lastFileSize = new FileInfo(_filePath).Length;
                             using var fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                             using var reader = new StreamReader(fs);
                             string json = reader.ReadToEnd();
@@ -128,8 +133,15 @@ namespace TarazInvoice.Services
                                 model.Invoices ??= new List<ProformaInvoice>();
                                 model.Settings ??= new AppSettings();
 
-                                // اطمینان از پیش‌فرض ریال
+                                // اطمینان از پیش‌فرض و استفاده قطعی از ریال در کل سامانه
                                 model.Settings.CurrencyUnit = "ریال";
+                                foreach (var inv in model.Invoices)
+                                {
+                                    if (inv.CurrencyUnit == "تومان" || string.IsNullOrWhiteSpace(inv.CurrencyUnit))
+                                    {
+                                        inv.CurrencyUnit = "ریال";
+                                    }
+                                }
 
                                 // هماهنگ‌سازی حساب‌های بانکی
                                 if (model.Settings.BankAccounts == null || model.Settings.BankAccounts.Count == 0)
@@ -172,20 +184,42 @@ namespace TarazInvoice.Services
             try
             {
                 string json = JsonSerializer.Serialize(model, _jsonOptions);
+                string tempPath = _filePath + $".{Guid.NewGuid():N}.tmp";
+
                 for (int attempt = 0; attempt < 5; attempt++)
                 {
                     try
                     {
-                        using var fs = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-                        using var writer = new StreamWriter(fs);
-                        writer.Write(json);
-                        writer.Flush();
-                        _lastWriteTimeUtc = File.GetLastWriteTimeUtc(_filePath);
+                        using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                        using (var writer = new StreamWriter(fs))
+                        {
+                            writer.Write(json);
+                            writer.Flush();
+                        }
                         break;
                     }
                     catch
                     {
                         System.Threading.Thread.Sleep(50);
+                    }
+                }
+
+                if (File.Exists(tempPath))
+                {
+                    for (int attempt = 0; attempt < 8; attempt++)
+                    {
+                        try
+                        {
+                            File.Copy(tempPath, _filePath, overwrite: true);
+                            try { File.Delete(tempPath); } catch { }
+                            _lastWriteTimeUtc = File.GetLastWriteTimeUtc(_filePath);
+                            _lastFileSize = new FileInfo(_filePath).Length;
+                            break;
+                        }
+                        catch
+                        {
+                            System.Threading.Thread.Sleep(60);
+                        }
                     }
                 }
             }

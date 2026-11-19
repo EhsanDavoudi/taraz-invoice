@@ -1,3 +1,4 @@
+#nullable disable
 using System;
 using System.Globalization;
 using System.Windows.Data;
@@ -108,6 +109,55 @@ namespace TarazInvoice.Converters
                 return result;
             }
             return 0m;
+        }
+    }
+
+    public class NullablePercentConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal d)
+            {
+                return d.ToString("G29", CultureInfo.InvariantCulture);
+            }
+            return "";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null) return null;
+            string s = value.ToString() ?? "";
+            s = s.Replace("۰", "0").Replace("۱", "1").Replace("۲", "2").Replace("۳", "3").Replace("۴", "4")
+                 .Replace("۵", "5").Replace("۶", "6").Replace("۷", "7").Replace("۸", "8").Replace("۹", "9")
+                 .Replace("%", "").Replace("٪", "").Replace(",", "").Replace("،", "").Replace(" ", "").Trim();
+
+            if (string.IsNullOrWhiteSpace(s))
+            {
+                return null;
+            }
+
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
+            {
+                return (decimal?)result;
+            }
+            return null;
+        }
+    }
+
+    public class NullablePercentDisplayConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal d)
+            {
+                return $"{d:G29} %";
+            }
+            return "—";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
         }
     }
 }

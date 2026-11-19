@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -31,6 +32,9 @@ namespace TarazInvoice
         // وضعیت فعلی ویرایش پیش‌فاکتور
         private ProformaInvoice? _currentEditingInvoice = null;
         private ObservableCollection<InvoiceItem> _editingItems = new ObservableCollection<InvoiceItem>();
+        private ObservableCollection<BankAccountInfo> _editingBankAccounts = new ObservableCollection<BankAccountInfo>();
+        private Wpf.Ui.Controls.TextBox? _currentGridTextBox = null;
+        private System.Windows.Threading.DispatcherTimer? _networkSyncTimer = null;
 
         // وضعیت فعلی شرکت و کارشناس در حال ویرایش
         private Company? _currentEditingCompany = null;
@@ -55,11 +59,29 @@ namespace TarazInvoice
 
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
+            Activated += MainWindow_Activated;
+        }
+
+        private void MainWindow_Activated(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_storage.CheckAndReloadIfDiskChanged())
+                {
+                    RefreshDropdownsAndActiveViews();
+                }
+            }
+            catch { }
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (_isDirty && _currentEditingInvoice != null)
+            if (_networkSyncTimer != null)
+            {
+                _networkSyncTimer.Stop();
+            }
+
+            if (_currentEditingInvoice != null && (ViewInvoiceEditor?.Visibility == Visibility.Visible || _isDirty))
             {
                 SaveDraftSilently();
             }
@@ -95,16 +117,57 @@ namespace TarazInvoice
                 }
             }
 
-            // بروزرسانی کارشناسان در ادیتور با حفظ انتخاب
+            // بروزرسانی کارشناسان در ادیتور با حفظ انتخاب و فیلتر متناسب با شرکت
             if (CmbEditorExpert != null)
             {
                 var curExpId = (CmbEditorExpert.SelectedItem as Expert)?.Id;
-                var experts = _storage.GetExperts().OrderBy(e => e.FullName).ToList();
+                var comp = CmbEditorCompany?.SelectedItem as Company;
+                var allExperts = _storage.GetExperts().OrderBy(e => e.FullName).ToList();
+                var experts = (comp != null) ? allExperts.Where(x => x.BelongsToCompany(comp.Id)).ToList() : allExperts;
+                if (experts.Count == 0) experts = allExperts;
+
                 CmbEditorExpert.ItemsSource = null;
                 CmbEditorExpert.ItemsSource = experts;
                 if (curExpId.HasValue)
                 {
                     CmbEditorExpert.SelectedItem = experts.FirstOrDefault(e => e.Id == curExpId.Value);
+                }
+            }
+
+            // بروزرسانی منوهای فیلتر شرکت و کارشناس در لیست پیش‌فاکتورها
+            if (CmbFilterCompany != null)
+            {
+                var curComp = CmbFilterCompany.SelectedItem;
+                CmbFilterCompany.Items.Clear();
+                CmbFilterCompany.Items.Add("همه شرکت‌ها");
+                var companies = _storage.GetCompanies().OrderBy(c => c.Name).ToList();
+                foreach (var c in companies) CmbFilterCompany.Items.Add(c);
+                if (curComp is Company oldC)
+                {
+                    var match = companies.FirstOrDefault(c => c.Id == oldC.Id);
+                    CmbFilterCompany.SelectedItem = match ?? (object)"همه شرکت‌ها";
+                }
+                else
+                {
+                    CmbFilterCompany.SelectedIndex = 0;
+                }
+            }
+
+            if (CmbFilterExpert != null)
+            {
+                var curExp = CmbFilterExpert.SelectedItem;
+                CmbFilterExpert.Items.Clear();
+                CmbFilterExpert.Items.Add("همه کارشناسان");
+                var experts = _storage.GetExperts().OrderBy(e => e.FullName).ToList();
+                foreach (var ex in experts) CmbFilterExpert.Items.Add(ex);
+                if (curExp is Expert oldE)
+                {
+                    var match = experts.FirstOrDefault(e => e.Id == oldE.Id);
+                    CmbFilterExpert.SelectedItem = match ?? (object)"همه کارشناسان";
+                }
+                else
+                {
+                    CmbFilterExpert.SelectedIndex = 0;
                 }
             }
 
@@ -139,7 +202,7 @@ namespace TarazInvoice
 
         private void UpdateWindowTitle()
         {
-            const string baseTitle = "تـراز - سامانه جامع صدور و مدیریت پیش‌فاکتور";
+            const string baseTitle = "تـراز (v0.2.0-beta) - سامانه جامع صدور و مدیریت پیش‌فاکتور";
             if (_isDirty && ViewInvoiceEditor != null && ViewInvoiceEditor.Visibility == Visibility.Visible)
             {
                 Title = $"* {baseTitle} (ویرایش پیش‌فاکتور - تغییرات ذخیره‌نشده)";
@@ -157,7 +220,95 @@ namespace TarazInvoice
             InitCombos();
             RefreshAll();
             LoadSettingsTab();
+
+            // فعال‌سازی تایمر همگام‌سازی زنده تحت شبکه (مشابه عملکرد React Query و Invalidation خودکار)
+            _networkSyncTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1.5)
+            };
+            _networkSyncTimer.Tick += (s, ev) =>
+            {
+                try
+                {
+                    if (_storage.CheckAndReloadIfDiskChanged())
+                    {
+                        RefreshDropdownsAndActiveViews();
+                    }
+                }
+                catch { }
+            };
+            _networkSyncTimer.Start();
+
+            // اتصال رویدادهای باز شدن کمبوباکس برای بارگذاری بلادرنگ داده‌های شبکه
+            if (CmbEditorCompany != null)
+            {
+                CmbEditorCompany.DropDownOpened += CmbEditorCompany_DropDownOpened;
+            }
+            if (CmbEditorExpert != null)
+            {
+                CmbEditorExpert.DropDownOpened += CmbEditorExpert_DropDownOpened;
+            }
+
+            // ورود با یک کلیک به حالت ویرایش در جدول اقلام
+            if (DgrInvoiceItems != null)
+            {
+                DgrInvoiceItems.PreviewMouseLeftButtonDown += DgrInvoiceItems_PreviewMouseLeftButtonDown;
+            }
+
             SwitchToView("Invoices");
+        }
+
+        private void CmbEditorCompany_DropDownOpened(object? sender, EventArgs e)
+        {
+            try
+            {
+                _storage.CheckAndReloadIfDiskChanged();
+                var curId = (CmbEditorCompany.SelectedItem as Company)?.Id;
+                var companies = _storage.GetCompanies().OrderBy(c => c.Name).ToList();
+                CmbEditorCompany.ItemsSource = companies;
+                if (curId.HasValue)
+                {
+                    CmbEditorCompany.SelectedItem = companies.FirstOrDefault(c => c.Id == curId.Value);
+                }
+            }
+            catch { }
+        }
+
+        private void CmbEditorExpert_DropDownOpened(object? sender, EventArgs e)
+        {
+            try
+            {
+                _storage.CheckAndReloadIfDiskChanged();
+                var curId = (CmbEditorExpert.SelectedItem as Expert)?.Id;
+                var comp = CmbEditorCompany.SelectedItem as Company;
+                var allExperts = _storage.GetExperts().OrderBy(ex => ex.FullName).ToList();
+                var experts = (comp != null) ? allExperts.Where(x => x.BelongsToCompany(comp.Id)).ToList() : allExperts;
+                if (experts.Count == 0) experts = allExperts;
+                CmbEditorExpert.ItemsSource = experts;
+                if (curId.HasValue)
+                {
+                    CmbEditorExpert.SelectedItem = experts.FirstOrDefault(x => x.Id == curId.Value);
+                }
+            }
+            catch { }
+        }
+
+        private void DgrInvoiceItems_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var dep = (DependencyObject)e.OriginalSource;
+            while (dep != null && dep is not DataGridCell && dep is not System.Windows.Controls.Primitives.DataGridColumnHeader)
+            {
+                dep = VisualTreeHelper.GetParent(dep);
+            }
+
+            if (dep is DataGridCell cell && !cell.IsEditing && !cell.IsReadOnly)
+            {
+                if (!cell.IsFocused)
+                {
+                    cell.Focus();
+                }
+                DgrInvoiceItems.BeginEdit();
+            }
         }
 
         private void InitCombos()
@@ -321,9 +472,25 @@ namespace TarazInvoice
         {
             if (sender is FrameworkElement fe && fe.Tag is string tag)
             {
-                if (tag == "Editor" && _currentEditingInvoice == null)
+                if (tag == "Editor")
                 {
-                    BtnNewInvoice_Click(sender, e);
+                    if (_currentEditingInvoice != null && _currentEditingInvoice.Status == InvoiceStatus.Draft)
+                    {
+                        SwitchToView("Editor");
+                    }
+                    else
+                    {
+                        // اگر پیش‌فاکتور نیمه‌کاره‌ای (پیش‌نویس) وجود دارد، آن را بارگذاری می‌کند؛ در غیر این صورت فرم خالی باز می‌شود
+                        var lastDraft = _storage.GetInvoices().LastOrDefault(i => i.Status == InvoiceStatus.Draft);
+                        if (lastDraft != null)
+                        {
+                            OpenInvoiceEditor(lastDraft, isNew: false);
+                        }
+                        else
+                        {
+                            BtnNewInvoice_Click(sender, e);
+                        }
+                    }
                 }
                 else
                 {
@@ -557,17 +724,17 @@ namespace TarazInvoice
             decimal approvedAmount = approvedInvoices.Sum(i => i.GrandTotal);
             int pendingCount = invoices.Count(i => i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.Sent);
 
-            if (TxtKpiTotalAmount != null) TxtKpiTotalAmount.Text = $"{totalAmount:N0} تومان";
+            if (TxtKpiTotalAmount != null) TxtKpiTotalAmount.Text = $"{totalAmount:N0} ریال";
             if (TxtKpiTotalCount != null) TxtKpiTotalCount.Text = $"تعداد: {invoices.Count} فاکتور صادرشده";
 
-            if (TxtKpiTotalProfit != null) TxtKpiTotalProfit.Text = $"{totalProfit:N0} تومان";
+            if (TxtKpiTotalProfit != null) TxtKpiTotalProfit.Text = $"{totalProfit:N0} ریال";
             if (TxtKpiProfitMargin != null)
             {
                 decimal margin = totalAmount > 0 ? Math.Round((totalProfit / totalAmount) * 100m, 1) : 0;
                 TxtKpiProfitMargin.Text = $"میانگین حاشیه سود: {margin}٪";
             }
 
-            if (TxtKpiApprovedAmount != null) TxtKpiApprovedAmount.Text = $"{approvedAmount:N0} تومان";
+            if (TxtKpiApprovedAmount != null) TxtKpiApprovedAmount.Text = $"{approvedAmount:N0} ریال";
             if (TxtKpiApprovedCount != null) TxtKpiApprovedCount.Text = $"تعداد: {approvedInvoices.Count} تأیید نهایی";
 
             if (TxtKpiPendingCount != null) TxtKpiPendingCount.Text = $"{pendingCount} پیش‌فاکتور";
@@ -935,6 +1102,18 @@ namespace TarazInvoice
                 {
                     PopupQuickSuggestions.IsOpen = false;
                     e.Handled = true;
+                    return;
+                }
+                if (PopupGridSuggestions != null && PopupGridSuggestions.IsOpen)
+                {
+                    PopupGridSuggestions.IsOpen = false;
+                    e.Handled = true;
+                    return;
+                }
+                if (ViewInvoiceEditor != null && ViewInvoiceEditor.Visibility == Visibility.Visible)
+                {
+                    e.Handled = true;
+                    return;
                 }
             }
         }
@@ -1066,6 +1245,25 @@ namespace TarazInvoice
             ChkHighlightNotes.IsChecked = invoice.HighlightNotes;
             ChkHighlightVat.IsChecked = invoice.HighlightVat;
 
+            // حساب‌های بانکی اختصاصی این پیش‌فاکتور
+            var defaultAccounts = invoice.BankAccounts != null && invoice.BankAccounts.Count > 0
+                ? invoice.BankAccounts
+                : (settings.BankAccounts ?? new List<BankAccountInfo>());
+
+            _editingBankAccounts = new ObservableCollection<BankAccountInfo>(
+                defaultAccounts.Select(a => new BankAccountInfo
+                {
+                    BankName = a.BankName,
+                    AccountNumber = a.AccountNumber,
+                    ShebaNumber = a.ShebaNumber,
+                    CardNumber = a.CardNumber,
+                    OwnerName = a.OwnerName
+                }));
+            if (DgrEditorBankAccounts != null)
+            {
+                DgrEditorBankAccounts.ItemsSource = _editingBankAccounts;
+            }
+
             // اقلام
             _editingItems = new ObservableCollection<InvoiceItem>();
             foreach (var item in invoice.Items)
@@ -1103,7 +1301,7 @@ namespace TarazInvoice
         private void RecalculateEditorSummaries()
         {
             decimal rawTotal = _editingItems.Sum(i => i.Quantity * i.RawPrice);
-            decimal discountTotal = _editingItems.Sum(i => i.Quantity * i.DiscountAmount);
+            decimal discountTotal = _editingItems.Sum(i => i.Quantity * (i.DiscountAmount));
             decimal profitTotal = _editingItems.Sum(i => i.TotalProfit);
             decimal grandTotal = _editingItems.Sum(i => i.TotalPrice);
 
@@ -1115,27 +1313,27 @@ namespace TarazInvoice
             decimal vatAmount = Math.Round(grandTotal * (vatPercent / 100m), 0);
             decimal grandTotalWithVat = grandTotal + vatAmount;
 
-            TxtSummaryRawTotal.Text = $"{rawTotal:N0} تومان";
-            TxtSummaryDiscountTotal.Text = $"{discountTotal:N0} تومان";
-            TxtSummaryProfitTotal.Text = $"{profitTotal:N0} تومان";
+            TxtSummaryRawTotal.Text = $"{rawTotal:N0} ریال";
+            TxtSummaryDiscountTotal.Text = $"{discountTotal:N0} ریال";
+            TxtSummaryProfitTotal.Text = $"{profitTotal:N0} ریال";
             decimal profitPct = grandTotal > 0 ? Math.Round((profitTotal / grandTotal) * 100m, 1) : 0;
             TxtSummaryProfitPercent.Text = $"{profitPct}% سود";
 
             if (TxtSummaryGrandTotal != null)
             {
-                TxtSummaryGrandTotal.Text = $"{grandTotalWithVat:N0} تومان";
+                TxtSummaryGrandTotal.Text = $"{grandTotalWithVat:N0} ریال";
             }
             if (TxtSummaryGrandTotalWithVat != null)
             {
-                TxtSummaryGrandTotalWithVat.Text = $"{grandTotalWithVat:N0} تومان";
+                TxtSummaryGrandTotalWithVat.Text = $"{grandTotalWithVat:N0} ریال";
             }
             if (TxtSummaryGrandTotalWords != null)
             {
-                TxtSummaryGrandTotalWords.Text = JalaliDateHelper.NumberToWords((long)grandTotalWithVat) + " تومان";
+                TxtSummaryGrandTotalWords.Text = JalaliDateHelper.NumberToWords((long)grandTotalWithVat) + " ریال";
             }
             if (TxtSummarySubtotalHint != null)
             {
-                TxtSummarySubtotalHint.Text = $"جمع اقلام: {grandTotal:N0} ت | ارزش افزوده ({vatPercent:G29}٪): {vatAmount:N0} ت";
+                TxtSummarySubtotalHint.Text = $"جمع اقلام: {grandTotal:N0} ریال | ارزش افزوده ({vatPercent:G29}٪): {vatAmount:N0} ریال";
             }
             if (TxtSummaryVatRateBadge != null)
             {
@@ -1219,7 +1417,8 @@ namespace TarazInvoice
                 ItemName = "",
                 Quantity = 1,
                 RawPrice = 0,
-                DiscountPercent = 0,
+                DiscountPercent = null,
+                ProfitPercent = null,
                 IsDividedBy1Point1 = false
             };
             newItem.PropertyChanged += Item_PropertyChanged;
@@ -1299,6 +1498,25 @@ namespace TarazInvoice
                 return false;
             }
 
+            // بررسی اجباری بودن درصد تخفیف و سود برای تمام سطرها (حتی ۰٪)
+            var incompleteItem = _editingItems.FirstOrDefault(it =>
+                string.IsNullOrWhiteSpace(it.ItemName) || !it.DiscountPercent.HasValue || !it.ProfitPercent.HasValue);
+
+            if (incompleteItem != null)
+            {
+                if (string.IsNullOrWhiteSpace(incompleteItem.ItemName))
+                {
+                    MessageBox.Show($"شرح کالا برای ردیف {incompleteItem.RowNumber} وارد نشده است.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                else
+                {
+                    MessageBox.Show($"تعیین درصد تخفیف و درصد سود برای تمامی ردیف‌ها الزامی است (حتی مقدار ۰٪ باید صراحتاً وارد گردد).\nلطفاً ردیف {incompleteItem.RowNumber} را تکمیل فرمایید.", "تکمیل درصد تخفیف و سود", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                DgrInvoiceItems.SelectedItem = incompleteItem;
+                DgrInvoiceItems.ScrollIntoView(incompleteItem);
+                return false;
+            }
+
             _currentEditingInvoice.CompanyId = company.Id;
             _currentEditingInvoice.CompanyName = company.Name;
             _currentEditingInvoice.CompanyPhone = TxtEditorCompanyPhone.Text?.Trim() ?? "";
@@ -1342,6 +1560,7 @@ namespace TarazInvoice
             _currentEditingInvoice.HighlightVat = ChkHighlightVat.IsChecked == true;
 
             _currentEditingInvoice.Items = _editingItems.ToList();
+            _currentEditingInvoice.BankAccounts = _editingBankAccounts.ToList();
             _currentEditingInvoice.UpdatedAt = DateTime.Now;
 
             if (_isNewInvoice)
@@ -1423,6 +1642,7 @@ namespace TarazInvoice
                 if (ChkHighlightVat != null) _currentEditingInvoice.HighlightVat = ChkHighlightVat.IsChecked == true;
 
                 _currentEditingInvoice.Items = _editingItems.ToList();
+                _currentEditingInvoice.BankAccounts = _editingBankAccounts.ToList();
                 _currentEditingInvoice.UpdatedAt = DateTime.Now;
 
                 _storage.AddOrUpdateInvoice(_currentEditingInvoice);
@@ -1436,7 +1656,8 @@ namespace TarazInvoice
 
         private void BtnApplyBulkDiscount_Click(object sender, RoutedEventArgs e)
         {
-            if (decimal.TryParse(TxtBulkDiscountPercent?.Text?.Trim(), out decimal discount) && discount >= 0)
+            string txt = TxtBulkDiscountPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
+            if (decimal.TryParse(txt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount) && discount >= 0)
             {
                 if (_editingItems.Count == 0)
                 {
@@ -1444,13 +1665,17 @@ namespace TarazInvoice
                     return;
                 }
 
-                foreach (var item in _editingItems)
+                var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
+                if (targets.Count == 0) targets = _editingItems.ToList();
+
+                foreach (var item in targets)
                 {
                     item.DiscountPercent = discount;
                 }
+                DgrInvoiceItems.Items.Refresh();
                 RecalculateEditorSummaries();
                 SetDirty(true);
-                SetStatus($"تخفیف {discount}٪ به تمام {_editingItems.Count} سطر پیش‌فاکتور اعمال شد.");
+                SetStatus($"تخفیف {discount}٪ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
             }
             else
             {
@@ -1460,7 +1685,8 @@ namespace TarazInvoice
 
         private void BtnApplyBulkProfit_Click(object sender, RoutedEventArgs e)
         {
-            if (decimal.TryParse(TxtBulkProfitPercent?.Text?.Trim(), out decimal profit) && profit >= 0)
+            string txt = TxtBulkProfitPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
+            if (decimal.TryParse(txt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profit) && profit >= 0)
             {
                 if (_editingItems.Count == 0)
                 {
@@ -1468,18 +1694,57 @@ namespace TarazInvoice
                     return;
                 }
 
-                foreach (var item in _editingItems)
+                var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
+                if (targets.Count == 0) targets = _editingItems.ToList();
+
+                foreach (var item in targets)
                 {
                     item.ProfitPercent = profit;
                 }
+                DgrInvoiceItems.Items.Refresh();
                 RecalculateEditorSummaries();
                 SetDirty(true);
-                SetStatus($"سود {profit}٪ به تمام {_editingItems.Count} سطر پیش‌فاکتور اعمال شد.");
+                SetStatus($"سود {profit}٪ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
             }
             else
             {
                 MessageBox.Show("لطفاً یک درصد سود معتبر وارد کنید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        private void BtnApplyBulkBoth_Click(object sender, RoutedEventArgs e)
+        {
+            if (_editingItems.Count == 0)
+            {
+                MessageBox.Show("هیچ سطری در پیش‌فاکتور وجود ندارد.", "توجه", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string dTxt = TxtBulkDiscountPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
+            string pTxt = TxtBulkProfitPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
+
+            bool hasDiscount = decimal.TryParse(dTxt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount) && discount >= 0;
+            bool hasProfit = decimal.TryParse(pTxt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profit) && profit >= 0;
+
+            if (!hasDiscount && !hasProfit)
+            {
+                MessageBox.Show("لطفاً حداقل درصد تخفیف یا درصد سود را وارد نمایید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
+            if (targets.Count == 0) targets = _editingItems.ToList();
+
+            foreach (var item in targets)
+            {
+                if (hasDiscount) item.DiscountPercent = discount;
+                if (hasProfit) item.ProfitPercent = profit;
+            }
+
+            DgrInvoiceItems.Items.Refresh();
+            RecalculateEditorSummaries();
+            SetDirty(true);
+            SetStatus($"تنظیم یکجای تخفیف و سود روی {targets.Count} سطر پیش‌فاکتور اعمال گردید.");
         }
 
         private void BtnApplyBulk1Point1_Click(object sender, RoutedEventArgs e)
@@ -1490,14 +1755,197 @@ namespace TarazInvoice
                 return;
             }
 
-            foreach (var item in _editingItems)
+            var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
+            if (targets.Count == 0) targets = _editingItems.ToList();
+
+            foreach (var item in targets)
             {
                 item.IsDividedBy1Point1 = true;
             }
+            DgrInvoiceItems.Items.Refresh();
             RecalculateEditorSummaries();
             SetDirty(true);
-            SetStatus($"فرمول تقسیم بر ۱.۱ به تمام {_editingItems.Count} سطر پیش‌فاکتور اعمال شد.");
+            SetStatus($"فرمول تقسیم بر ۱.۱ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
         }
+
+        #region پیشنهادات هوشمند جستجوی کالا در جدول اقلام
+
+        private void TxtGridItemName_Loaded(object sender, RoutedEventArgs e)
+        {
+            _currentGridTextBox = sender as Wpf.Ui.Controls.TextBox;
+            if (_currentGridTextBox != null)
+            {
+                _currentGridTextBox.Focus();
+                _currentGridTextBox.SelectAll();
+            }
+        }
+
+        private void TxtGridItemName_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is Wpf.Ui.Controls.TextBox tb)
+            {
+                _currentGridTextBox = tb;
+                string q = tb.Text?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(q))
+                {
+                    if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
+                    return;
+                }
+
+                var matching = _storage.GetStorageItems()
+                    .Where(x => (!string.IsNullOrEmpty(x.Name) && x.Name.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrEmpty(x.Code) && x.Code.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrEmpty(x.Category) && x.Category.Contains(q, StringComparison.OrdinalIgnoreCase)))
+                    .Take(25)
+                    .ToList();
+
+                if (matching.Any() && PopupGridSuggestions != null && LstGridSuggestions != null)
+                {
+                    LstGridSuggestions.ItemsSource = matching;
+                    PopupGridSuggestions.PlacementTarget = tb;
+                    PopupGridSuggestions.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                    PopupGridSuggestions.IsOpen = true;
+                }
+                else
+                {
+                    if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
+                }
+            }
+        }
+
+        private void TxtGridItemName_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (PopupGridSuggestions != null && PopupGridSuggestions.IsOpen)
+            {
+                if (e.Key == Key.Down)
+                {
+                    LstGridSuggestions?.Focus();
+                    if (LstGridSuggestions != null && LstGridSuggestions.Items.Count > 0)
+                    {
+                        LstGridSuggestions.SelectedIndex = 0;
+                    }
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.Escape)
+                {
+                    PopupGridSuggestions.IsOpen = false;
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void LstGridSuggestions_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            ApplyGridSuggestion();
+        }
+
+        private void LstGridSuggestions_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                ApplyGridSuggestion();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
+                _currentGridTextBox?.Focus();
+                e.Handled = true;
+            }
+        }
+
+        private void ApplyGridSuggestion()
+        {
+            if (LstGridSuggestions?.SelectedItem is StorageItem item && _currentGridTextBox != null)
+            {
+                if (_currentGridTextBox.DataContext is InvoiceItem invoiceItem)
+                {
+                    invoiceItem.ItemName = item.Name;
+                    if (!string.IsNullOrEmpty(item.Unit)) invoiceItem.Unit = item.Unit;
+                    if (item.DefaultPrice > 0) invoiceItem.RawPrice = item.DefaultPrice;
+                    RecalculateEditorSummaries();
+                    SetDirty(true);
+                }
+                else
+                {
+                    _currentGridTextBox.Text = item.Name;
+                }
+                if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
+                LstGridSuggestions.SelectedItem = null;
+                DgrInvoiceItems.CommitEdit(DataGridEditingUnit.Row, true);
+            }
+        }
+
+        #endregion
+
+        #region مدیریت حساب‌های بانکی اختصاصی در فرم ویرایش پیش‌فاکتور
+
+        private void BtnAddEditorBankAccount_Click(object sender, RoutedEventArgs e)
+        {
+            string bName = TxtEditorNewBankName?.Text?.Trim() ?? "";
+            string accNum = TxtEditorNewBankAccountNumber?.Text?.Trim() ?? "";
+            string sheba = TxtEditorNewBankSheba?.Text?.Trim() ?? "";
+            string card = TxtEditorNewBankCard?.Text?.Trim() ?? "";
+            string owner = TxtEditorNewBankOwner?.Text?.Trim() ?? "";
+
+            if (string.IsNullOrEmpty(bName) && string.IsNullOrEmpty(accNum) && string.IsNullOrEmpty(sheba) && string.IsNullOrEmpty(card))
+            {
+                MessageBox.Show("لطفاً مشخصات حساب بانکی را وارد نمایید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _editingBankAccounts.Add(new BankAccountInfo
+            {
+                BankName = bName,
+                AccountNumber = accNum,
+                ShebaNumber = sheba,
+                CardNumber = card,
+                OwnerName = owner
+            });
+
+            if (TxtEditorNewBankName != null) TxtEditorNewBankName.Text = "";
+            if (TxtEditorNewBankAccountNumber != null) TxtEditorNewBankAccountNumber.Text = "";
+            if (TxtEditorNewBankSheba != null) TxtEditorNewBankSheba.Text = "";
+            if (TxtEditorNewBankCard != null) TxtEditorNewBankCard.Text = "";
+            if (TxtEditorNewBankOwner != null) TxtEditorNewBankOwner.Text = "";
+
+            SetDirty(true);
+            SetStatus("حساب بانکی به این پیش‌فاکتور افزوده شد.");
+        }
+
+        private void BtnDeleteEditorBankAccount_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement btn && btn.DataContext is BankAccountInfo acc)
+            {
+                _editingBankAccounts.Remove(acc);
+                SetDirty(true);
+                SetStatus("حساب بانکی از این پیش‌فاکتور حذف شد.");
+            }
+        }
+
+        private void BtnResetEditorBankAccounts_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = _storage.GetSettings();
+            _editingBankAccounts.Clear();
+            if (settings.BankAccounts != null)
+            {
+                foreach (var a in settings.BankAccounts)
+                {
+                    _editingBankAccounts.Add(new BankAccountInfo
+                    {
+                        BankName = a.BankName,
+                        AccountNumber = a.AccountNumber,
+                        ShebaNumber = a.ShebaNumber,
+                        CardNumber = a.CardNumber,
+                        OwnerName = a.OwnerName
+                    });
+                }
+            }
+            SetDirty(true);
+            SetStatus("حساب‌های بانکی پیش‌فاکتور به اطلاعات تنظیمات اصلی بازنشانی گردید.");
+        }
+
+        #endregion
 
         private void BtnSaveInvoice_Click(object sender, RoutedEventArgs e)
         {
@@ -1634,16 +2082,21 @@ namespace TarazInvoice
                 price = 0;
             }
 
-            decimal discount = 0;
-            if (TxtQuickItemDiscount != null && decimal.TryParse(TxtQuickItemDiscount.Text?.Trim(), out decimal dVal) && dVal >= 0)
+            string dTxt = TxtQuickItemDiscount?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
+            string pTxt = TxtQuickItemProfit?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
+
+            if (string.IsNullOrWhiteSpace(dTxt) || !decimal.TryParse(dTxt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount) || discount < 0)
             {
-                discount = dVal;
+                MessageBox.Show("ورود درصد تخفیف الزامی است (حتی مقدار ۰٪ را وارد نمایید).", "اطلاعات ناقص", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TxtQuickItemDiscount?.Focus();
+                return;
             }
 
-            decimal profit = 0;
-            if (TxtQuickItemProfit != null && decimal.TryParse(TxtQuickItemProfit.Text?.Trim(), out decimal pVal) && pVal >= 0)
+            if (string.IsNullOrWhiteSpace(pTxt) || !decimal.TryParse(pTxt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profit) || profit < 0)
             {
-                profit = pVal;
+                MessageBox.Show("ورود درصد سود الزامی است (حتی مقدار ۰٪ را وارد نمایید).", "اطلاعات ناقص", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TxtQuickItemProfit?.Focus();
+                return;
             }
 
             var newItem = new InvoiceItem
@@ -1686,8 +2139,8 @@ namespace TarazInvoice
             TxtQuickItemName.Text = "";
             TxtQuickItemQty.Text = "1";
             TxtQuickItemPrice.Text = "0";
-            if (TxtQuickItemDiscount != null) TxtQuickItemDiscount.Text = "0";
-            if (TxtQuickItemProfit != null) TxtQuickItemProfit.Text = "0";
+            if (TxtQuickItemDiscount != null) TxtQuickItemDiscount.Text = "";
+            if (TxtQuickItemProfit != null) TxtQuickItemProfit.Text = "";
             TxtQuickItemName.Focus();
 
             SetStatus($"کالای «{name}» به اقلام پیش‌فاکتور افزوده شد.");
@@ -1735,6 +2188,25 @@ namespace TarazInvoice
             }
         }
 
+        private void CmbCompanyType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CmbCompanyType == null || LblCompanyFormName == null || LblCompanyCode == null || LblCompanyReg == null) return;
+
+            bool isReal = (CmbCompanyType.SelectedIndex == 1);
+            if (isReal)
+            {
+                LblCompanyFormName.Text = "نام و نام خانوادگی شخص طرف حساب *:";
+                LblCompanyCode.Text = "کد ملی / شناسه ملی:";
+                LblCompanyReg.Text = "شماره شناسنامه / مدرک:";
+            }
+            else
+            {
+                LblCompanyFormName.Text = "نام شرکت یا سازمان طرف حساب *:";
+                LblCompanyCode.Text = "شناسه ملی / کد اقتصادی:";
+                LblCompanyReg.Text = "شماره ثبت شرکت:";
+            }
+        }
+
         private void BtnNewCompany_Click(object sender, RoutedEventArgs e)
         {
             _currentEditingCompany = null;
@@ -1742,7 +2214,7 @@ namespace TarazInvoice
             if (CmbCompanyType != null) CmbCompanyType.SelectedIndex = 0;
             TxtCompanyName.Text = "";
             TxtCompanyEconomicCode.Text = "";
-            TxtCompanyNationalCode.Text = "";
+            if (TxtCompanyMobile != null) TxtCompanyMobile.Text = "";
             TxtCompanyRegistrationNo.Text = "";
             TxtCompanyPhone.Text = "";
             TxtCompanyAddress.Text = "";
@@ -1768,7 +2240,7 @@ namespace TarazInvoice
             }
             TxtCompanyName.Text = company.Name;
             TxtCompanyEconomicCode.Text = company.NationalOrEconomicCode;
-            TxtCompanyNationalCode.Text = company.NationalCode;
+            if (TxtCompanyMobile != null) TxtCompanyMobile.Text = company.Mobile;
             TxtCompanyRegistrationNo.Text = company.RegistrationNo;
             TxtCompanyPhone.Text = company.Phone;
             TxtCompanyAddress.Text = company.Address;
@@ -1796,11 +2268,10 @@ namespace TarazInvoice
             company.Name = name;
             company.CompanyType = (CmbCompanyType != null && CmbCompanyType.SelectedIndex == 1) ? CompanyType.Real : CompanyType.Legal;
             string eco = TxtCompanyEconomicCode.Text?.Trim() ?? "";
-            string nat = TxtCompanyNationalCode.Text?.Trim() ?? "";
-            company.EconomicCode = eco;
-            company.NationalCode = !string.IsNullOrEmpty(nat) ? nat : eco;
+            company.NationalOrEconomicCode = eco;
             company.RegistrationNo = TxtCompanyRegistrationNo.Text?.Trim() ?? "";
             company.Phone = TxtCompanyPhone.Text?.Trim() ?? "";
+            company.Mobile = TxtCompanyMobile?.Text?.Trim() ?? "";
             company.Address = TxtCompanyAddress.Text?.Trim() ?? "";
             company.Description = TxtCompanyDescription.Text?.Trim() ?? "";
 
@@ -2220,11 +2691,11 @@ namespace TarazInvoice
             decimal unpaidAmount = invoices.Where(i => i.Status == InvoiceStatus.Unpaid).Sum(i => i.GrandTotal);
 
             if (TxtReportKpiCount != null) TxtReportKpiCount.Text = $"{count} پیش‌فاکتور";
-            if (TxtReportKpiTotalAmount != null) TxtReportKpiTotalAmount.Text = $"{totalAmount:N0} تومان";
-            if (TxtReportKpiTotalProfit != null) TxtReportKpiTotalProfit.Text = $"{totalProfit:N0} تومان";
+            if (TxtReportKpiTotalAmount != null) TxtReportKpiTotalAmount.Text = $"{totalAmount:N0} ریال";
+            if (TxtReportKpiTotalProfit != null) TxtReportKpiTotalProfit.Text = $"{totalProfit:N0} ریال";
             if (TxtReportKpiProfitMargin != null) TxtReportKpiProfitMargin.Text = $"میانگین حاشیه سود: {profitMargin}٪";
-            if (TxtReportKpiPaidAmount != null) TxtReportKpiPaidAmount.Text = $"واریز شده: {paidAmount:N0} تومان";
-            if (TxtReportKpiUnpaidAmount != null) TxtReportKpiUnpaidAmount.Text = $"واریز نشده: {unpaidAmount:N0} تومان";
+            if (TxtReportKpiPaidAmount != null) TxtReportKpiPaidAmount.Text = $"واریز شده: {paidAmount:N0} ریال";
+            if (TxtReportKpiUnpaidAmount != null) TxtReportKpiUnpaidAmount.Text = $"واریز نشده: {unpaidAmount:N0} ریال";
         }
 
         private void ReportFilter_Changed(object sender, SelectionChangedEventArgs e)
@@ -2274,7 +2745,7 @@ namespace TarazInvoice
         private void BtnPrintReport_Click(object sender, RoutedEventArgs e)
         {
             var currentList = DgrReports.ItemsSource as List<ProformaInvoice> ?? _storage.GetInvoices();
-            string filterSummary = $"تعداد: {currentList.Count} پیش‌فاکتور | جمع کل: {currentList.Sum(i => i.GrandTotal):N0} تومان";
+            string filterSummary = $"تعداد: {currentList.Count} پیش‌فاکتور | جمع کل: {currentList.Sum(i => i.GrandTotal):N0} ریال";
             try
             {
                 _printService.PrintReport(currentList, "گزارش جامع پیش‌فاکتورها و کارتابل فروش", filterSummary);
@@ -2374,11 +2845,12 @@ namespace TarazInvoice
         private void BtnAddBankAccount_Click(object sender, RoutedEventArgs e)
         {
             string bName = TxtNewBankName?.Text?.Trim() ?? "";
+            string accNum = TxtNewBankAccountNumber?.Text?.Trim() ?? "";
             string sheba = TxtNewBankSheba?.Text?.Trim() ?? "";
             string card = TxtNewBankCard?.Text?.Trim() ?? "";
             string owner = TxtNewBankOwner?.Text?.Trim() ?? "";
 
-            if (string.IsNullOrEmpty(bName) && string.IsNullOrEmpty(sheba) && string.IsNullOrEmpty(card))
+            if (string.IsNullOrEmpty(bName) && string.IsNullOrEmpty(accNum) && string.IsNullOrEmpty(sheba) && string.IsNullOrEmpty(card))
             {
                 MessageBox.Show("لطفاً مشخصات حساب بانکی را وارد نمایید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -2387,6 +2859,7 @@ namespace TarazInvoice
             var acc = new BankAccountInfo
             {
                 BankName = bName,
+                AccountNumber = accNum,
                 ShebaNumber = sheba,
                 CardNumber = card,
                 OwnerName = owner
@@ -2394,6 +2867,7 @@ namespace TarazInvoice
             _settingsBankAccounts.Add(acc);
 
             if (TxtNewBankName != null) TxtNewBankName.Text = "";
+            if (TxtNewBankAccountNumber != null) TxtNewBankAccountNumber.Text = "";
             if (TxtNewBankSheba != null) TxtNewBankSheba.Text = "";
             if (TxtNewBankCard != null) TxtNewBankCard.Text = "";
             if (TxtNewBankOwner != null) TxtNewBankOwner.Text = "";

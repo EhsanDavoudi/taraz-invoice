@@ -20,6 +20,46 @@ namespace TarazInvoice.Services
             _storage = storage;
         }
 
+        public static string FormatPersianRtlText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+            string trimmed = text.Trim();
+            string formatted = trimmed
+                .Replace("-", "\u200F-\u200F")
+                .Replace("(", "\u200F(\u200F")
+                .Replace(")", "\u200F)\u200F")
+                .Replace("/", "\u200F/\u200F");
+            return $"\u202B\u200F{formatted}\u200F\u202C";
+        }
+
+        public static string FormatCustomerDisplayName(string? prefix, string? companyName, string? phone = null)
+        {
+            string p = prefix?.Trim() ?? "";
+            string name = companyName?.Trim() ?? "مشتری محترم";
+
+            if (string.IsNullOrWhiteSpace(p))
+            {
+                p = "نام مشتری: شرکت محترم";
+            }
+
+            if (p.StartsWith("نام مشتری") && !p.StartsWith("نام مشتری:"))
+            {
+                p = "نام مشتری: " + p.Substring("نام مشتری".Length).TrimStart();
+            }
+
+            if ((p.EndsWith("شرکت محترم") || p.EndsWith("شرکت")) && name.StartsWith("شرکت "))
+            {
+                name = name.Substring(5).TrimStart();
+            }
+
+            string full = $"{p.TrimEnd()} {name.TrimStart()}".Trim();
+            if (!string.IsNullOrWhiteSpace(phone))
+            {
+                full += $" (تلفن: {phone.Trim()})";
+            }
+            return full;
+        }
+
         public FlowDocument CreateInvoiceFlowDocument(ProformaInvoice invoice)
         {
             var settings = _storage.GetSettings();
@@ -47,9 +87,9 @@ namespace TarazInvoice.Services
 
             // ==================== ۱. سربرگ اصلی (مطابق نمونه تصویر) ====================
             var headerTable = new Table { Margin = new Thickness(0, 0, 0, 12), CellSpacing = 0 };
-            headerTable.Columns.Add(new TableColumn { Width = new GridLength(320) }); // نام شرکت و لوگو (راست - پهنای کافی برای جلوگیری از بریده شدن نام)
-            headerTable.Columns.Add(new TableColumn { Width = new GridLength(214) }); // عنوان پیش‌فاکتور (وسط)
-            headerTable.Columns.Add(new TableColumn { Width = new GridLength(200) }); // تاریخ و شماره (چپ)
+            headerTable.Columns.Add(new TableColumn { Width = new GridLength(365) }); // نام شرکت و لوگو (راست - پهنای کافی برای نمایش نام کامل بدون بریده شدن)
+            headerTable.Columns.Add(new TableColumn { Width = new GridLength(170) }); // عنوان پیش‌فاکتور (وسط)
+            headerTable.Columns.Add(new TableColumn { Width = new GridLength(199) }); // تاریخ و شماره (چپ)
 
             var headerGroup = new TableRowGroup();
             var headerRow = new TableRow();
@@ -87,11 +127,12 @@ namespace TarazInvoice.Services
             {
                 Text = settings.SellerName,
                 FontFamily = companyFontFamily,
-                FontSize = companyFontSize > 16 ? 16 : companyFontSize,
+                FontSize = Math.Min(companyFontSize > 0 ? companyFontSize : 15, 15),
                 FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
                 VerticalAlignment = VerticalAlignment.Center,
-                TextWrapping = TextWrapping.NoWrap
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 295
             };
             companyStack.Children.Add(companyNameBlock);
             companyCell.Blocks.Add(new BlockUIContainer(companyStack));
@@ -155,17 +196,9 @@ namespace TarazInvoice.Services
             // ==================== ۲. مشخصات مشتری و متن مقدمه ====================
             var introSection = new Section { Margin = new Thickness(0, 4, 0, 8) };
 
-            string custPrefix = !string.IsNullOrWhiteSpace(invoice.CustomerLabelPrefix) ? invoice.CustomerLabelPrefix : (!string.IsNullOrWhiteSpace(settings.CustomerLabelPrefix) ? settings.CustomerLabelPrefix : "نام مشتری شرکت محترم ");
-            string custName = string.IsNullOrWhiteSpace(invoice.CompanyName) ? "مشتری محترم" : invoice.CompanyName;
-
-            string formattedPrefix = custPrefix.TrimEnd() + " ";
+            string formattedCustomerLine = FormatCustomerDisplayName(invoice.CustomerLabelPrefix, invoice.CompanyName, invoice.CompanyPhone);
             var customerPara = new Paragraph { Margin = new Thickness(0, 0, 0, 3), FontSize = 11.5 };
-            customerPara.Inlines.Add(new Bold(new Run(formattedPrefix)));
-            customerPara.Inlines.Add(new Run(custName.TrimStart()));
-            if (!string.IsNullOrWhiteSpace(invoice.CompanyPhone))
-            {
-                customerPara.Inlines.Add(new Run($"  (تلفن: {invoice.CompanyPhone})"));
-            }
+            customerPara.Inlines.Add(new Bold(new Run(formattedCustomerLine)));
             introSection.Blocks.Add(customerPara);
 
             var subjectPara = new Paragraph { Margin = new Thickness(0, 0, 0, 3), FontSize = 11 };
@@ -186,11 +219,11 @@ namespace TarazInvoice.Services
             introSection.Blocks.Add(greetingsPara);
             doc.Blocks.Add(introSection);
 
-            string currUnit = !string.IsNullOrWhiteSpace(invoice.CurrencyUnit) ? invoice.CurrencyUnit : (!string.IsNullOrWhiteSpace(settings.CurrencyUnit) ? settings.CurrencyUnit : "ریال");
+            string currUnit = "ریال";
 
             // ==================== ۳. جدول اقلام کالا با شکست سطر هوشمند (Wrap) ====================
             // ستون‌ها: ردیف | شرح کالا (عرض بزرگ با Wrap) | مقدار | واحد | قیمت واحد | جمع کل
-            var itemsTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 8) };
+            var itemsTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 8), FlowDirection = FlowDirection.RightToLeft };
             itemsTable.Columns.Add(new TableColumn { Width = new GridLength(35) });  // ردیف
             itemsTable.Columns.Add(new TableColumn { Width = new GridLength(334) }); // شرح کالا (قابلیت شکست ۲ یا ۳ خطی)
             itemsTable.Columns.Add(new TableColumn { Width = new GridLength(50) });  // مقدار
@@ -220,7 +253,7 @@ namespace TarazInvoice.Services
                 AddInvoiceTableCell(tr, rowIdx.ToString(), TextAlignment.Center, isHeader: false, borderBrush: borderBrush);
 
                 // شرح کالا با شکست خطوط و جهت اکیداً راست‌چین برای حفظ ترتیب صحیح اعداد و خط‌تیره‌های فارسی
-                string safeItemName = "\u200F" + item.ItemName + "\u200F";
+                string safeItemName = FormatPersianRtlText(item.ItemName);
                 var namePara = new Paragraph(new Run(safeItemName))
                 {
                     FlowDirection = FlowDirection.RightToLeft,
@@ -233,6 +266,7 @@ namespace TarazInvoice.Services
                 var nameCell = new TableCell(namePara)
                 {
                     FlowDirection = FlowDirection.RightToLeft,
+                    TextAlignment = TextAlignment.Right,
                     BorderBrush = borderBrush,
                     BorderThickness = new Thickness(1)
                 };
@@ -675,11 +709,12 @@ namespace TarazInvoice.Services
 
         public static string GetSafeInvoiceFileName(ProformaInvoice invoice, string extension = "pdf")
         {
-            string num = !string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? invoice.InvoiceNumber.Trim() : "فاکتور";
+            string num = !string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? invoice.InvoiceNumber.Trim() : "پیش‌فاکتور";
             string comp = !string.IsNullOrWhiteSpace(invoice.CompanyName) ? invoice.CompanyName.Trim() : "مشتری";
             string exp = !string.IsNullOrWhiteSpace(invoice.ExpertName) ? invoice.ExpertName.Trim() : "کارشناس";
-            string raw = $"{num}_{comp}_{exp}";
-            string safe = string.Join("_", raw.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim();
+            string raw = $"{num} - {comp} - {exp}";
+            var invalidChars = Path.GetInvalidFileNameChars();
+            string safe = string.Join(" ", raw.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries)).Trim();
             if (string.IsNullOrWhiteSpace(safe)) safe = $"پیش‌فاکتور_{invoice.InvoiceNumber}";
             return string.IsNullOrWhiteSpace(extension) ? safe : $"{safe}.{extension.TrimStart('.')}";
         }

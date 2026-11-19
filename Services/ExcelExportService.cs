@@ -67,12 +67,12 @@ namespace TarazInvoice.Services
             ReplacePlaceholder(worksheet, "{{کد_اقتصادی_فروشنده}}", settings.SellerEconomicCode);
             ReplacePlaceholder(worksheet, "{{SELLER_NAT_CODE}}", settings.SellerNationalCode);
             ReplacePlaceholder(worksheet, "{{شناسه_ملی_فروشنده}}", settings.SellerNationalCode);
-            ReplacePlaceholder(worksheet, "{{SUBTOTAL}}", $"{invoice.TotalRawAmount:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{TOTAL_DISCOUNT}}", $"{invoice.TotalDiscount:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{TOTAL_PROFIT}}", $"{invoice.TotalProfit:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{GRAND_TOTAL}}", $"{invoice.GrandTotal:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{مبلغ_کل}}", $"{invoice.GrandTotal:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{GRAND_TOTAL_WORDS}}", JalaliDateHelper.NumberToWords((long)invoice.GrandTotal) + " " + settings.CurrencyUnit);
+            ReplacePlaceholder(worksheet, "{{SUBTOTAL}}", $"{invoice.TotalRawAmount:N0} ریال");
+            ReplacePlaceholder(worksheet, "{{TOTAL_DISCOUNT}}", $"{invoice.TotalDiscount:N0} ریال");
+            ReplacePlaceholder(worksheet, "{{TOTAL_PROFIT}}", $"{invoice.TotalProfit:N0} ریال");
+            ReplacePlaceholder(worksheet, "{{GRAND_TOTAL}}", $"{invoice.GrandTotal:N0} ریال");
+            ReplacePlaceholder(worksheet, "{{مبلغ_کل}}", $"{invoice.GrandTotal:N0} ریال");
+            ReplacePlaceholder(worksheet, "{{GRAND_TOTAL_WORDS}}", JalaliDateHelper.NumberToWords((long)invoice.GrandTotal) + " ریال");
             ReplacePlaceholder(worksheet, "{{NOTES}}", invoice.Notes);
 
             int startRow = 8;
@@ -168,7 +168,7 @@ namespace TarazInvoice.Services
             ws.PageSetup.Margins.Left = 0.35;
             ws.PageSetup.Margins.Right = 0.35;
 
-            string currUnit = !string.IsNullOrWhiteSpace(invoice.CurrencyUnit) ? invoice.CurrencyUnit : (!string.IsNullOrWhiteSpace(settings.CurrencyUnit) ? settings.CurrencyUnit : "ریال");
+            string currUnit = "ریال";
 
             // ==================== ۱. سربرگ پیش‌فاکتور (مطابق دقیق تصویر) ====================
             // الف) بخش راست: لوگو در ستون ۱ (ردیف) و نام شرکت در ستون ۲ (شرح کالا) با چیدمان وسط‌چین
@@ -190,7 +190,7 @@ namespace TarazInvoice.Services
                 var sellerCell = ws.Cell("B2");
                 sellerCell.Value = settings.SellerName;
                 sellerCell.Style.Font.Bold = true;
-                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)settings.CompanyNameFontSize : 18;
+                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)Math.Min(settings.CompanyNameFontSize, 15) : 15;
                 sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
                 sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
@@ -201,7 +201,7 @@ namespace TarazInvoice.Services
                 var sellerCell = ws.Cell("A2");
                 sellerCell.Value = settings.SellerName;
                 sellerCell.Style.Font.Bold = true;
-                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)settings.CompanyNameFontSize : 18;
+                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)Math.Min(settings.CompanyNameFontSize, 15) : 15;
                 sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
                 sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
@@ -239,12 +239,8 @@ namespace TarazInvoice.Services
             ws.Range("F1:F4").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
             // ==================== ۲. مشخصات مشتری و متن مقدمه ====================
-            string custPrefix = !string.IsNullOrWhiteSpace(invoice.CustomerLabelPrefix) ? invoice.CustomerLabelPrefix : (!string.IsNullOrWhiteSpace(settings.CustomerLabelPrefix) ? settings.CustomerLabelPrefix : "نام مشتری شرکت محترم ");
-            string custName = string.IsNullOrWhiteSpace(invoice.CompanyName) ? "مشتری محترم" : invoice.CompanyName;
-
-            string formattedPrefix = custPrefix.TrimEnd() + " ";
             ws.Range("A6:F6").Merge();
-            ws.Cell("A6").Value = $"{formattedPrefix}{custName.TrimStart()}";
+            ws.Cell("A6").Value = PrintPdfService.FormatCustomerDisplayName(invoice.CustomerLabelPrefix, invoice.CompanyName, invoice.CompanyPhone);
             ws.Cell("A6").Style.Font.Bold = true;
             ws.Cell("A6").Style.Font.FontSize = 11;
             ws.Cell("A6").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
@@ -530,7 +526,7 @@ namespace TarazInvoice.Services
 
             // تنظیم عرض ستون‌ها متناسب با نمونه
             ws.Column(1).Width = 7;
-            ws.Column(2).Width = 48;
+            ws.Column(2).Width = 52;
             ws.Column(3).Width = 9;
             ws.Column(4).Width = 9;
             ws.Column(5).Width = 18;
@@ -652,7 +648,7 @@ namespace TarazInvoice.Services
             ws.Cell(headerRow, 3).Value = "تاریخ صدور";
             ws.Cell(headerRow, 4).Value = "نام شرکت خریدار";
             ws.Cell(headerRow, 5).Value = "کارشناس صادرکننده";
-            ws.Cell(headerRow, 6).Value = $"مبلغ کل ({settings.CurrencyUnit})";
+            ws.Cell(headerRow, 6).Value = "مبلغ کل (ریال)";
             ws.Cell(headerRow, 7).Value = "وضعیت";
 
             var hRange = ws.Range(headerRow, 1, headerRow, 7);
