@@ -14,14 +14,20 @@ namespace TarazInvoice.Services
         public List<Company> Companies { get; set; } = new List<Company>();
         public List<Expert> Experts { get; set; } = new List<Expert>();
         public List<ProformaInvoice> Invoices { get; set; } = new List<ProformaInvoice>();
+        public List<StorageItem> StorageItems { get; set; } = new List<StorageItem>();
         public AppSettings Settings { get; set; } = new AppSettings();
     }
 
-    public class StorageService
+    public class StorageService : IDisposable
     {
         private static readonly object _lock = new object();
         private readonly string _filePath;
         private DatabaseModel _data;
+        private DateTime _lastWriteTimeUtc = DateTime.MinValue;
+        private readonly FileSystemWatcher? _fileWatcher;
+        private bool _isSavingInternal = false;
+
+        public event Action? DataChanged;
 
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         {
@@ -39,6 +45,63 @@ namespace TarazInvoice.Services
 
             _filePath = Path.Combine(appDataDir, "database.json");
             _data = LoadFromFile();
+
+            // دیده‌بان فایل محلی / شبکه برای اطلاع‌رسانی بلادرنگ تغییرات دیتابیس توسط سایر کاربران
+            try
+            {
+                _fileWatcher = new FileSystemWatcher(appDataDir, "database.json")
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                    EnableRaisingEvents = true
+                };
+
+                _fileWatcher.Changed += OnExternalFileChanged;
+                _fileWatcher.Created += OnExternalFileChanged;
+            }
+            catch { }
+        }
+
+        private void OnExternalFileChanged(object sender, FileSystemEventArgs e)
+        {
+            if (_isSavingInternal) return;
+
+            // تاخیر کوتاه برای پایان نوشتن سایر کلاینت‌ها روی شبکه
+            System.Threading.Tasks.Task.Delay(100).ContinueWith(_ =>
+            {
+                if (CheckAndReloadIfDiskChanged())
+                {
+                    DataChanged?.Invoke();
+                }
+            });
+        }
+
+        public bool CheckAndReloadIfDiskChanged()
+        {
+            lock (_lock)
+            {
+                if (!File.Exists(_filePath)) return false;
+                try
+                {
+                    var currentDiskTime = File.GetLastWriteTimeUtc(_filePath);
+                    if (currentDiskTime > _lastWriteTimeUtc.AddMilliseconds(50))
+                    {
+                        var reloaded = LoadFromFile();
+                        _data = reloaded;
+                        return true;
+                    }
+                }
+                catch { }
+                return false;
+            }
+        }
+
+        public void ReloadFromDisk()
+        {
+            lock (_lock)
+            {
+                _data = LoadFromFile();
+                DataChanged?.Invoke();
+            }
         }
 
         private DatabaseModel LoadFromFile()
@@ -47,18 +110,53 @@ namespace TarazInvoice.Services
             {
                 if (File.Exists(_filePath))
                 {
-                    try
+                    for (int attempt = 0; attempt < 4; attempt++)
                     {
-                        string json = File.ReadAllText(_filePath);
-                        var model = JsonSerializer.Deserialize<DatabaseModel>(json, _jsonOptions);
-                        if (model != null)
+                        try
                         {
-                            return model;
+                            _lastWriteTimeUtc = File.GetLastWriteTimeUtc(_filePath);
+                            using var fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                            using var reader = new StreamReader(fs);
+                            string json = reader.ReadToEnd();
+                            
+                            var model = JsonSerializer.Deserialize<DatabaseModel>(json, _jsonOptions);
+                            if (model != null)
+                            {
+                                model.StorageItems ??= new List<StorageItem>();
+                                model.Companies ??= new List<Company>();
+                                model.Experts ??= new List<Expert>();
+                                model.Invoices ??= new List<ProformaInvoice>();
+                                model.Settings ??= new AppSettings();
+
+                                // اطمینان از پیش‌فرض ریال
+                                model.Settings.CurrencyUnit = "ریال";
+
+                                // هماهنگ‌سازی حساب‌های بانکی
+                                if (model.Settings.BankAccounts == null || model.Settings.BankAccounts.Count == 0)
+                                {
+                                    model.Settings.BankAccounts = new List<BankAccountInfo>
+                                    {
+                                        new BankAccountInfo
+                                        {
+                                            BankName = "بانک ملی ایران",
+                                            ShebaNumber = "IR95017000000118033698006",
+                                            CardNumber = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶",
+                                            OwnerName = "شرکت آریان نیرو گستر اترک"
+                                        }
+                                    };
+                                }
+
+                                if (model.StorageItems.Count == 0)
+                                {
+                                    PopulateDefaultStorageItems(model.StorageItems);
+                                }
+                                return model;
+                            }
                         }
-                    }
-                    catch
-                    {
-                        // در صورت بروز خطا در خواندن، یک مدل جدید با داده‌های نمونه تولید می‌شود
+                        catch
+                        {
+                            System.Threading.Thread.Sleep(50);
+                        }
                     }
                 }
 
@@ -70,8 +168,31 @@ namespace TarazInvoice.Services
 
         private void SaveInternal(DatabaseModel model)
         {
-            string json = JsonSerializer.Serialize(model, _jsonOptions);
-            File.WriteAllText(_filePath, json);
+            _isSavingInternal = true;
+            try
+            {
+                string json = JsonSerializer.Serialize(model, _jsonOptions);
+                for (int attempt = 0; attempt < 5; attempt++)
+                {
+                    try
+                    {
+                        using var fs = new FileStream(_filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                        using var writer = new StreamWriter(fs);
+                        writer.Write(json);
+                        writer.Flush();
+                        _lastWriteTimeUtc = File.GetLastWriteTimeUtc(_filePath);
+                        break;
+                    }
+                    catch
+                    {
+                        System.Threading.Thread.Sleep(50);
+                    }
+                }
+            }
+            finally
+            {
+                _isSavingInternal = false;
+            }
         }
 
         public void Save()
@@ -80,6 +201,16 @@ namespace TarazInvoice.Services
             {
                 SaveInternal(_data);
             }
+            DataChanged?.Invoke();
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                _fileWatcher?.Dispose();
+            }
+            catch { }
         }
 
         private DatabaseModel CreateSeedData()
@@ -188,14 +319,98 @@ namespace TarazInvoice.Services
             }
 
             seed.Invoices.Add(inv1);
+
+            // کالاهای نمونه انبار
+            PopulateDefaultStorageItems(seed.StorageItems);
+
             return seed;
         }
 
-        // دسترسی به داده‌ها
-        public List<Company> GetCompanies() => _data.Companies;
-        public List<Expert> GetExperts() => _data.Experts;
-        public List<ProformaInvoice> GetInvoices() => _data.Invoices;
-        public AppSettings GetSettings() => _data.Settings;
+        private static void PopulateDefaultStorageItems(List<StorageItem> items)
+        {
+            if (items == null) return;
+            items.Add(new StorageItem
+            {
+                Code = "PRD-101",
+                Name = "کلمپ فلکسیبل جریان و هارمونیک مدل AFLEX 3003 برند PROVA",
+                Unit = "عدد",
+                DefaultPrice = 1037760000,
+                StockQuantity = 15,
+                Category = "ابزار دقیق و اندازه‌گیری",
+                Description = "کلمپ فلکسیبل جریان و هارمونیک ساخت برند PROVA با دقت بالا"
+            });
+            items.Add(new StorageItem
+            {
+                Code = "PRD-102",
+                Name = "هیتر هویه دیجیتالی دو کاره گرداک مدل GORDAK 952 با یکسال گارانتی",
+                Unit = "عدد",
+                DefaultPrice = 298350000,
+                StockQuantity = 22,
+                Category = "تجهیزات لحیم‌کاری و تعمیرات",
+                Description = "هیتر هویه دو کاره گرداک دیجیتال با یکسال گارانتی رسمی"
+            });
+            items.Add(new StorageItem
+            {
+                Code = "PRD-103",
+                Name = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰",
+                Unit = "عدد",
+                DefaultPrice = 18500000,
+                StockQuantity = 8,
+                Category = "شیرآلات صنعتی",
+                Description = "شیر پروانه‌ای استنلس استیل ۳۱۶ با لاینر EPDM"
+            });
+            items.Add(new StorageItem
+            {
+                Code = "PRD-104",
+                Name = "فلنج کربن استیل گلوجوش ۶ اینچ",
+                Unit = "عدد",
+                DefaultPrice = 4200000,
+                StockQuantity = 35,
+                Category = "اتصالات پایپینگ",
+                Description = "فلنج گلودار کربن استیل کلاس ۱۵۰ استاندارد ASME"
+            });
+            items.Add(new StorageItem
+            {
+                Code = "PRD-105",
+                Name = "مولتی‌متر دیجیتال صنعتی Fluke مدل 87V",
+                Unit = "دستگاه",
+                DefaultPrice = 645000000,
+                StockQuantity = 6,
+                Category = "ابزار دقیق و اندازه‌گیری",
+                Description = "مولتی‌متر صنعتی دقیق Fluke True RMS"
+            });
+        }
+
+        // دسترسی به داده‌ها با بررسی همگام‌سازی شبکه و فایل
+        public List<Company> GetCompanies()
+        {
+            CheckAndReloadIfDiskChanged();
+            return _data.Companies;
+        }
+
+        public List<Expert> GetExperts()
+        {
+            CheckAndReloadIfDiskChanged();
+            return _data.Experts;
+        }
+
+        public List<ProformaInvoice> GetInvoices()
+        {
+            CheckAndReloadIfDiskChanged();
+            return _data.Invoices;
+        }
+
+        public AppSettings GetSettings()
+        {
+            CheckAndReloadIfDiskChanged();
+            return _data.Settings;
+        }
+
+        public List<StorageItem> GetStorageItems()
+        {
+            CheckAndReloadIfDiskChanged();
+            return _data.StorageItems;
+        }
 
         // عملیات شرکت‌ها
         public void AddOrUpdateCompany(Company company)
@@ -261,6 +476,77 @@ namespace TarazInvoice.Services
         {
             _data.Invoices.RemoveAll(i => i.Id == invoiceId);
             Save();
+        }
+
+        // عملیات انبار و کالاها (Storage Items)
+        public void AddOrUpdateStorageItem(StorageItem item)
+        {
+            var existing = _data.StorageItems.FirstOrDefault(p => p.Id == item.Id);
+            if (existing != null)
+            {
+                int index = _data.StorageItems.IndexOf(existing);
+                item.UpdatedAt = DateTime.Now;
+                _data.StorageItems[index] = item;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(item.Code))
+                {
+                    item.Code = $"PRD-{_data.StorageItems.Count + 101}";
+                }
+                item.CreatedAt = DateTime.Now;
+                item.UpdatedAt = DateTime.Now;
+                _data.StorageItems.Add(item);
+            }
+            Save();
+        }
+
+        public void DeleteStorageItem(Guid itemId)
+        {
+            _data.StorageItems.RemoveAll(p => p.Id == itemId);
+            Save();
+        }
+
+        public StorageItem EnsureStorageItemExists(string name, string unit, decimal defaultPrice, bool updatePriceIfDifferent = false)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null!;
+            var trimmed = name.Trim();
+            var existing = _data.StorageItems.FirstOrDefault(p => 
+                string.Equals(p.Name.Trim(), trimmed, StringComparison.OrdinalIgnoreCase));
+            
+            if (existing != null)
+            {
+                // بروزرسانی قیمت در صورتی که کاربر قیمت را تغییر داده باشد یا قبلاً صفر بوده باشد
+                if (updatePriceIfDifferent && defaultPrice > 0 && defaultPrice != existing.DefaultPrice)
+                {
+                    existing.DefaultPrice = defaultPrice;
+                    existing.UpdatedAt = DateTime.Now;
+                    Save();
+                }
+                else if (existing.DefaultPrice <= 0 && defaultPrice > 0)
+                {
+                    existing.DefaultPrice = defaultPrice;
+                    existing.UpdatedAt = DateTime.Now;
+                    Save();
+                }
+                return existing;
+            }
+
+            var newItem = new StorageItem
+            {
+                Id = Guid.NewGuid(),
+                Code = $"PRD-{_data.StorageItems.Count + 101}",
+                Name = trimmed,
+                Unit = string.IsNullOrWhiteSpace(unit) ? "عدد" : unit.Trim(),
+                DefaultPrice = defaultPrice,
+                StockQuantity = 0,
+                Category = "عمومی",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+            _data.StorageItems.Add(newItem);
+            Save();
+            return newItem;
         }
 
         // پشتیبان‌گیری

@@ -65,18 +65,49 @@ namespace TarazInvoice.Converters
         {
             if (value is decimal d)
             {
-                return $"{d:N0} تومان";
+                return $"{d:N0} ریال";
             }
             if (value is double db)
             {
-                return $"{db:N0} تومان";
+                return $"{db:N0} ریال";
             }
-            return "0 تومان";
+            return "0 ریال";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    public class DecimalNumberConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal d)
+            {
+                return d == 0 ? "0" : d.ToString("N0", CultureInfo.InvariantCulture);
+            }
+            if (value is double db)
+            {
+                return db == 0 ? "0" : db.ToString("N0", CultureInfo.InvariantCulture);
+            }
+            return "0";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null) return 0m;
+            string s = value.ToString() ?? "";
+            s = s.Replace("۰", "0").Replace("۱", "1").Replace("۲", "2").Replace("۳", "3").Replace("۴", "4")
+                 .Replace("۵", "5").Replace("۶", "6").Replace("۷", "7").Replace("۸", "8").Replace("۹", "9")
+                 .Replace(",", "").Replace("،", "").Replace(" ", "").Trim();
+
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
+            {
+                return result;
+            }
+            return 0m;
         }
     }
 }

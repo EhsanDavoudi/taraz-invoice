@@ -14,6 +14,49 @@ namespace TarazInvoice.Services
             return $"{_pc.GetYear(now):0000}/{_pc.GetMonth(now):00}/{_pc.GetDayOfMonth(now):00}";
         }
 
+        public static readonly string[] PersianMonths = new[]
+        {
+            "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+            "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
+        };
+
+        public static int? GetMonthNumber(string? shamsiDate)
+        {
+            if (string.IsNullOrWhiteSpace(shamsiDate)) return null;
+            var parts = shamsiDate.Trim().Split('/');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out int m))
+            {
+                return m;
+            }
+            return null;
+        }
+
+        public static int? GetYearNumber(string? shamsiDate)
+        {
+            if (string.IsNullOrWhiteSpace(shamsiDate)) return null;
+            var parts = shamsiDate.Trim().Split('/');
+            if (parts.Length >= 1 && int.TryParse(parts[0], out int y))
+            {
+                return y;
+            }
+            return null;
+        }
+
+        public static string GetMonthName(int monthNumber)
+        {
+            if (monthNumber >= 1 && monthNumber <= 12)
+            {
+                return PersianMonths[monthNumber - 1];
+            }
+            return "";
+        }
+
+        public static string GetMonthName(string? shamsiDate)
+        {
+            var m = GetMonthNumber(shamsiDate);
+            return m.HasValue ? GetMonthName(m.Value) : "";
+        }
+
         public static string GetShamsiDateAfterDays(int days)
         {
             DateTime future = DateTime.Now.AddDays(days);
@@ -36,7 +79,7 @@ namespace TarazInvoice.Services
                 .Replace('9', '۹');
         }
 
-        public static string FormatMoney(decimal amount, string unit = "تومان")
+        public static string FormatMoney(decimal amount, string unit = "ریال")
         {
             return $"{amount:N0} {unit}";
         }

@@ -157,7 +157,7 @@
                                     <!-- متن یا محتوای آیتم -->
                                     <ContentPresenter Grid.Column="0"
                                                       VerticalAlignment="Center"
-                                                      HorizontalAlignment="Left"
+                                                      HorizontalAlignment="Stretch"
                                                       RecognizesAccessKey="False"/>
                                     <!-- تیک تایید انتخاب (Checkmark) -->
                                     <Path x:Name="Checkmark"
@@ -203,15 +203,18 @@
                 </Setter>
             </Style>
 
+            <!-- ============================================================== -->
+            <!-- استایل و قالب کنترل سراسری کمبوباکس (Modern Fluent ComboBox)    -->
+            <!-- ============================================================== -->
             <!-- دکمه تاشو (ToggleButton) کمبوباکس -->
             <ControlTemplate x:Key="ComboBoxToggleButtonTemplate" TargetType="{x:Type ToggleButton}">
                 <Border x:Name="Border"
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="6"
+                        CornerRadius="7"
                         SnapsToDevicePixels="True">
-                    <Grid>
+                    <Grid SnapsToDevicePixels="True">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="34"/>
@@ -219,9 +222,9 @@
                         <!-- آیکون فلش شیک و هندسی فلوئنت (Vector Chevron) -->
                         <Path x:Name="Chevron"
                               Grid.Column="1"
-                              Data="M 0 1 L 4 5 L 8 1"
+                              Data="M 0 1 L 4.5 5.5 L 9 1"
                               Stroke="#64748B"
-                              StrokeThickness="1.5"
+                              StrokeThickness="1.6"
                               StrokeStartLineCap="Round"
                               StrokeEndLineCap="Round"
                               StrokeLineJoin="Round"
@@ -239,7 +242,7 @@
                         <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
                         <Setter TargetName="Border" Property="Background" Value="#FFFFFF"/>
                         <Setter TargetName="Chevron" Property="Stroke" Value="{StaticResource PrimaryBrush}"/>
-                        <Setter TargetName="Chevron" Property="Data" Value="M 0 5 L 4 1 L 8 5"/>
+                        <Setter TargetName="Chevron" Property="Data" Value="M 0 5.5 L 4.5 1 L 9 5.5"/>
                     </Trigger>
                     <Trigger Property="IsEnabled" Value="False">
                         <Setter TargetName="Border" Property="Background" Value="{StaticResource CanvasBackgroundBrush}"/>
@@ -249,9 +252,6 @@
                 </ControlTemplate.Triggers>
             </ControlTemplate>
 
-            <!-- ============================================================== -->
-            <!-- استایل و قالب کنترل سراسری کمبوباکس (Modern Fluent ComboBox)    -->
-            <!-- ============================================================== -->
             <Style TargetType="{x:Type ComboBox}">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
                 <Setter Property="FontSize" Value="12.5"/>
@@ -261,6 +261,10 @@
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="Height" Value="36"/>
                 <Setter Property="MinHeight" Value="36"/>
+                <Setter Property="MinWidth" Value="100"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Padding" Value="12,0"/>
                 <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
                 <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
                 <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
@@ -269,7 +273,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type ComboBox}">
-                            <Grid SnapsToDevicePixels="True">
+                            <Grid SnapsToDevicePixels="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                 <!-- دکمه تاگل سراسری به عنوان کادر و پس‌زمینه کل کمبوباکس -->
                                 <ToggleButton x:Name="DropDownToggle"
                                               Template="{StaticResource ComboBoxToggleButtonTemplate}"
@@ -277,18 +281,58 @@
                                               BorderBrush="{TemplateBinding BorderBrush}"
                                               BorderThickness="{TemplateBinding BorderThickness}"
                                               Focusable="False"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
                                               IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                               ClickMode="Press"/>
 
-                                <!-- نمایش متن / آیتم انتخاب شده -->
-                                <ContentPresenter x:Name="ContentSite"
-                                                  IsHitTestVisible="False"
-                                                  Content="{TemplateBinding SelectionBoxItem}"
-                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                                  Margin="12,0,36,0"
-                                                  VerticalAlignment="Center"
-                                                  HorizontalAlignment="Left"/>
+                                <!-- گرید دو ستونه برای جداسازی قطعی محتوا از آیکون فلش (هماهنگ با RTL و LTR) -->
+                                <Grid SnapsToDevicePixels="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="34"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- ۱. نمایش متن یا آیتم در حالت انتخاب معمولی (Non-Editable) -->
+                                    <ContentPresenter x:Name="ContentSite"
+                                                      Grid.Column="0"
+                                                      IsHitTestVisible="False"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                      Margin="12,0,6,0"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Stretch"
+                                                      RecognizesAccessKey="False"/>
+
+                                    <!-- ۲. جعبه متن ویرایش‌پذیر در صورت IsEditable=True (الزامی برای جلوگیری از شکستن سلکت‌ها) -->
+                                    <TextBox x:Name="PART_EditableTextBox"
+                                             Grid.Column="0"
+                                             HorizontalAlignment="Stretch"
+                                             VerticalAlignment="Center"
+                                             Margin="10,0,6,0"
+                                             Focusable="True"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Padding="2,0"
+                                             Foreground="{TemplateBinding Foreground}"
+                                             FontFamily="{TemplateBinding FontFamily}"
+                                             FontSize="{TemplateBinding FontSize}"
+                                             IsReadOnly="{TemplateBinding IsReadOnly}"
+                                             Visibility="Collapsed">
+                                        <TextBox.Template>
+                                            <ControlTemplate TargetType="{x:Type TextBox}">
+                                                <Border Background="Transparent" SnapsToDevicePixels="True">
+                                                    <ScrollViewer x:Name="PART_ContentHost"
+                                                                  Background="Transparent"
+                                                                  Focusable="False"
+                                                                  HorizontalScrollBarVisibility="Hidden"
+                                                                  VerticalScrollBarVisibility="Hidden"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </TextBox.Template>
+                                    </TextBox>
+                                </Grid>
 
                                 <!-- پنجره پاپ‌آپ لیست گزینه‌ها -->
                                 <Popup x:Name="PART_Popup"
@@ -297,7 +341,7 @@
                                        AllowsTransparency="True"
                                        Focusable="False"
                                        PopupAnimation="Fade"
-                                       VerticalOffset="2"
+                                       VerticalOffset="3"
                                        FlowDirection="{TemplateBinding FlowDirection}">
                                     <Grid MaxHeight="{TemplateBinding MaxDropDownHeight}"
                                           MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
@@ -331,6 +375,11 @@
                                 </Popup>
                             </Grid>
                             <ControlTemplate.Triggers>
+                                <Trigger Property="IsEditable" Value="True">
+                                    <Setter Property="IsTabStop" Value="False"/>
+                                    <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                                    <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
                                 <Trigger Property="HasItems" Value="False">
                                     <Setter TargetName="DropDownBorder" Property="MinHeight" Value="56"/>
                                 </Trigger>
@@ -512,7 +561,8 @@
                             <Border Background="{TemplateBinding Background}" 
                                     BorderThickness="0" 
                                     SnapsToDevicePixels="True">
-                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <ContentPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}" 
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
                             </Border>
                         </ControlTemplate>
                     </Setter.Value>
@@ -548,6 +598,7 @@
             <converters:StatusToColorBrushConverter x:Key="StatusToColorBrushConverter"/>
             <converters:StatusToBgColorBrushConverter x:Key="StatusToBgColorBrushConverter"/>
             <converters:CurrencyFormatConverter x:Key="CurrencyFormatConverter"/>
+            <converters:DecimalNumberConverter x:Key="DecimalNumberConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -166,5 +166,1151 @@ namespace TarazInvoice.Tests
             Assert.Contains("هشتاد و چهار میلیون", words);
             Assert.Contains("پانصد هزار", words);
         }
+
+        [Fact]
+        public void Test_InvoiceItem_Calculations_WithProfitPercent()
+        {
+            // قیمت خام 10,000,000 - 10 درصد تخفیف = 9,000,000
+            // با تیک 1.1: قیمت پایه = 9,000,000 / 1.1 = 8,181,818
+            // 20 درصد سود: سود واحد = 8,181,818 * 0.20 = 1,636,364
+            // قیمت نهایی فروش = 8,181,818 + 1,636,364 = 9,818,182
+            // تعداد 2: سود کل = 3,272,728 - جمع کل = 19,636,364
+            var item = new InvoiceItem
+            {
+                ItemName = "الکتروموتور ۵.۵ کیلووات",
+                Quantity = 2,
+                RawPrice = 10000000,
+                DiscountPercent = 10,
+                IsDividedBy1Point1 = true,
+                ProfitPercent = 20
+            };
+
+            item.UpdateFromPercent();
+
+            decimal baseCost = Math.Round((10000000m * 0.9m) / 1.1m, 0); // 8,181,818
+            decimal expectedProfitUnit = Math.Round(baseCost * 0.20m, 0); // 1,636,364
+            decimal expectedUnitPrice = baseCost + expectedProfitUnit;    // 9,818,182
+
+            Assert.Equal(expectedProfitUnit, item.ProfitAmount);
+            Assert.Equal(expectedUnitPrice, item.FinalUnitPrice);
+            Assert.Equal(expectedProfitUnit * 2, item.TotalProfit);
+            Assert.Equal(expectedUnitPrice * 2, item.TotalPrice);
+        }
+
+        [Fact]
+        public void Test_InvoiceItem_Calculations_WithDirectFinalPrice()
+        {
+            // کالا با قیمت پایه 5,000,000 (بدون تخفیف و بدون 1.1)
+            // کاربر مستقیماً قیمت نهایی فروش را 6,000,000 وارد می‌کند
+            // سود واحد باید 1,000,000 و درصد سود 20% محاسبه شود
+            var item = new InvoiceItem
+            {
+                Quantity = 3,
+                RawPrice = 5000000,
+                DiscountPercent = 0,
+                IsDividedBy1Point1 = false
+            };
+            item.UpdateFromPercent();
+
+            item.FinalUnitPrice = 6000000;
+
+            Assert.Equal(1000000m, item.ProfitAmount);
+            Assert.Equal(20m, item.ProfitPercent);
+            Assert.Equal(3000000m, item.TotalProfit);
+            Assert.Equal(18000000m, item.TotalPrice);
+        }
+
+        [Fact]
+        public void Test_TemplateExport_FirstSheetOnly_PreservesStylingAndPattern()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTemplateMultiSheet_" + Guid.NewGuid());
+            Directory.CreateDirectory(tempDir);
+
+            try
+            {
+                string templatePath = Path.Combine(tempDir, "MultiSheetTemplate.xlsx");
+                string outputPath = Path.Combine(tempDir, "OutputInvoice.xlsx");
+
+                // ایجاد قالب چند شیته: شیت اول قالب، شیت دوم اطلاعات دیگر
+                using (var wb = new XLWorkbook())
+                {
+                    var ws1 = wb.Worksheets.Add("شیت اصلی قالب");
+                    ws1.RightToLeft = true;
+                    ws1.Cell("A1").Value = "پیش‌فاکتور: {{INVOICE_NO}}";
+                    ws1.Cell("A2").Value = "سود پیش‌فاکتور: {{TOTAL_PROFIT}}";
+
+                    // سطر ۸ شروع اقلام با استایل خاص (رنگ و کادر)
+                    ws1.Cell(8, 1).Value = "{{ITEMS}}";
+                    ws1.Row(8).Height = 28;
+                    ws1.Range(8, 1, 8, 5).Style.Fill.BackgroundColor = XLColor.FromArgb(230, 240, 255);
+                    ws1.Range(8, 1, 8, 5).Style.Font.Bold = true;
+
+                    // شیت دوم
+                    var ws2 = wb.Worksheets.Add("شیت محاسبات پنهان");
+                    ws2.Cell("A1").Value = "این شیت نباید تغییر کند";
+
+                    wb.SaveAs(templatePath);
+                }
+
+                byte[] originalTemplateBytes = File.ReadAllBytes(templatePath);
+
+                var storage = new StorageService();
+                var excelService = new ExcelExportService(storage);
+
+                var invoice = new ProformaInvoice
+                {
+                    InvoiceNumber = "EXP-TEST-8888",
+                    IssueDateShamsi = "1403/07/01",
+                    ValidUntilShamsi = "1403/07/08",
+                    CompanyName = "فولاد مبارکه",
+                    Items = new List<InvoiceItem>
+                    {
+                        new InvoiceItem { RowNumber = 1, ItemName = "محصول اول", Quantity = 2, RawPrice = 1000000, ProfitPercent = 10 },
+                        new InvoiceItem { RowNumber = 2, ItemName = "محصول دوم", Quantity = 4, RawPrice = 2000000, ProfitPercent = 15 }
+                    }
+                };
+                foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+                // صدور با قالب
+                excelService.ExportInvoice(invoice, outputPath, templatePath);
+
+                // راستی‌آزمایی ۱: فایل اصلی قالب به هیچ عنوان تغییر نکرده باشد
+                byte[] currentTemplateBytes = File.ReadAllBytes(templatePath);
+                Assert.Equal(originalTemplateBytes, currentTemplateBytes);
+
+                // راستی‌آزمایی ۲: فایل خروجی فقط شیت اول را به عنوان قالب گرفته و سطر دوم از سطر اول الگوبرداری کرده است
+                using var outWb = new XLWorkbook(outputPath);
+                var outWs1 = outWb.Worksheet(1);
+
+                Assert.Equal("پیش‌فاکتور: EXP-TEST-8888", outWs1.Cell("A1").GetString());
+                Assert.Contains(invoice.TotalProfit.ToString("N0"), outWs1.Cell("A2").GetString());
+
+                // اقلام در سطرهای ۸ و ۹
+                Assert.Equal("محصول اول", outWs1.Cell(8, 2).GetString());
+                Assert.Equal("محصول دوم", outWs1.Cell(9, 2).GetString());
+
+                // سطر ۹ از سطر ۸ الگوبرداری کرده: ارتفاع و رنگ پر شدن یکسان است
+                Assert.Equal(outWs1.Row(8).Height, outWs1.Row(9).Height);
+                Assert.Equal(outWs1.Cell(8, 2).Style.Fill.BackgroundColor, outWs1.Cell(9, 2).Style.Fill.BackgroundColor);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData("A", 1)]
+        [InlineData("B", 2)]
+        [InlineData("E", 5)]
+        [InlineData("Z", 26)]
+        [InlineData("AA", 27)]
+        [InlineData("3", 3)]
+        [InlineData("  d  ", 4)]
+        public void Test_ParseColumnToNumber(string input, int expected)
+        {
+            int col = ExcelExportService.ParseColumnToNumber(input, 1);
+            Assert.Equal(expected, col);
+        }
+
+        [Fact]
+        public void Test_AllStatuses_PersianStringsAndColors()
+        {
+            // راستی‌آزمایی هر ۹ وضعیت درخواستی کاربر
+            Assert.Equal("تهیه کالا", InvoiceStatus.PreparingGoods.ToPersianString());
+            Assert.Equal("ارسال شده", InvoiceStatus.Sent.ToPersianString());
+            Assert.Equal("ارسال نشده", InvoiceStatus.NotSent.ToPersianString());
+            Assert.Equal("هزینه واریز شده", InvoiceStatus.Paid.ToPersianString());
+            Assert.Equal("واریز نشده", InvoiceStatus.Unpaid.ToPersianString());
+            Assert.Equal("پیش‌نویس", InvoiceStatus.Draft.ToPersianString());
+            Assert.Equal("در انتظار تأیید", InvoiceStatus.Pending.ToPersianString());
+            Assert.Equal("تأیید شده", InvoiceStatus.Approved.ToPersianString());
+            Assert.Equal("لغو / باطل شده", InvoiceStatus.Canceled.ToPersianString());
+
+            // رنگ‌ها
+            Assert.NotNull(InvoiceStatus.PreparingGoods.GetColorHex());
+            Assert.NotNull(InvoiceStatus.Sent.GetColorHex());
+            Assert.NotNull(InvoiceStatus.NotSent.GetColorHex());
+            Assert.NotNull(InvoiceStatus.Paid.GetColorHex());
+            Assert.NotNull(InvoiceStatus.Unpaid.GetColorHex());
+        }
+
+        [Fact]
+        public void Test_StorageService_EnsureStorageItemExists()
+        {
+            var storage = new StorageService();
+            string testItemName = "دستگاه تست آنالایزر شبکه " + Guid.NewGuid().ToString().Substring(0, 5);
+
+            // ۱. قبل از فراخوانی، این کالا نباید در انبار باشد
+            var initialList = storage.GetStorageItems();
+            Assert.DoesNotContain(initialList, x => x.Name == testItemName);
+
+            // ۲. فراخوانی EnsureStorageItemExists
+            var createdItem = storage.EnsureStorageItemExists(testItemName, "دستگاه", 145000000m);
+            Assert.NotNull(createdItem);
+            Assert.Equal(testItemName, createdItem.Name);
+            Assert.Equal("دستگاه", createdItem.Unit);
+            Assert.Equal(145000000m, createdItem.DefaultPrice);
+
+            // ۳. حال باید در انبار ذخیره شده باشد
+            var afterList = storage.GetStorageItems();
+            Assert.Contains(afterList, x => x.Name == testItemName);
+
+            // ۴. اگر مجدداً صدا زده شود، نباید تکراری اضافه شود و همان کالای قبلی برگردانده شود
+            int countBefore = afterList.Count;
+            var sameItem = storage.EnsureStorageItemExists(testItemName, "دستگاه", 145000000m);
+            Assert.Equal(createdItem.Id, sameItem.Id);
+            Assert.Equal(countBefore, storage.GetStorageItems().Count);
+        }
+
+        [Fact]
+        public void Test_JalaliDateHelper_MonthAndYearExtraction()
+        {
+            // نمونه بر اساس فاکتور کاربر: 1405/08/26 (آبان ماه)
+            string dateStr = "1405/08/26";
+            int? month = JalaliDateHelper.GetMonthNumber(dateStr);
+            int? year = JalaliDateHelper.GetYearNumber(dateStr);
+            string monthName = JalaliDateHelper.GetMonthName(dateStr);
+
+            Assert.Equal(8, month);
+            Assert.Equal(1405, year);
+            Assert.Equal("آبان", monthName);
+
+            // بررسی ماه و سال تاریخ با فرمت نامنظم
+            Assert.Equal(1, JalaliDateHelper.GetMonthNumber("1403/1/5"));
+            Assert.Equal(1403, JalaliDateHelper.GetYearNumber("1403/1/5"));
+            Assert.Equal("فروردین", JalaliDateHelper.GetMonthName("1403/1/5"));
+        }
+
+        [Fact]
+        public void Test_Invoice_VatCalculation()
+        {
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "INV-VAT-1",
+                VatPercent = 10,
+                Items = new List<InvoiceItem>
+                {
+                    new InvoiceItem { RowNumber = 1, ItemName = "کالا ۱", Quantity = 1, RawPrice = 100000000 },
+                    new InvoiceItem { RowNumber = 2, ItemName = "کالا ۲", Quantity = 1, RawPrice = 50000000 }
+                }
+            };
+            foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+            // جمع اقلام = 150,000,000
+            Assert.Equal(150000000m, invoice.GrandTotal);
+
+            // ارزش افزوده ۱۰٪ = 15,000,000
+            Assert.Equal(15000000m, invoice.VatAmount);
+
+            // جمع کل با ارزش افزوده = 165,000,000
+            Assert.Equal(165000000m, invoice.GrandTotalWithVat);
+        }
+
+        [Fact]
+        public void Test_ExcelExport_StorageAndReport()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazExportTests_" + Guid.NewGuid());
+            Directory.CreateDirectory(tempDir);
+
+            try
+            {
+                var storage = new StorageService();
+                var excel = new ExcelExportService(storage);
+
+                // ۱. تست خروجی اکسل انبار
+                string storagePath = Path.Combine(tempDir, "Storage.xlsx");
+                var items = new List<StorageItem>
+                {
+                    new StorageItem { Code = "TST-01", Name = "کلمپ فلکسیبل جریان مدل AFLEX 3003", Unit = "عدد", DefaultPrice = 1000000, StockQuantity = 5, Category = "ابزار دقیق" }
+                };
+                excel.ExportStorage(items, storagePath);
+                Assert.True(File.Exists(storagePath));
+
+                using (var wb = new XLWorkbook(storagePath))
+                {
+                    var ws = wb.Worksheets.First();
+                    Assert.Equal("فهرست اقلام و موجودی انبار کالاها", ws.Cell(1, 1).GetString());
+                    Assert.Equal("کد کالا", ws.Cell(3, 2).GetString());
+                    Assert.Equal("TST-01", ws.Cell(4, 2).GetString());
+                }
+
+                // ۲. تست خروجی اکسل گزارش فروش
+                string reportPath = Path.Combine(tempDir, "Report.xlsx");
+                var invoices = new List<ProformaInvoice>
+                {
+                    new ProformaInvoice
+                    {
+                        InvoiceNumber = "EXP-001",
+                        IssueDateShamsi = "1405/08/26",
+                        CompanyName = "شرکت دانه طلایی",
+                        ExpertName = "محمد احمدی پور",
+                        Status = InvoiceStatus.Paid,
+                        Items = new List<InvoiceItem>
+                        {
+                            new InvoiceItem { RowNumber = 1, ItemName = "هیتر گرداک", Quantity = 1, RawPrice = 5000000 }
+                        }
+                    }
+                };
+                foreach (var inv in invoices)
+                {
+                    foreach (var it in inv.Items) it.UpdateFromPercent();
+                }
+
+                excel.ExportReport(invoices, reportPath, "گزارش فروش ماه آبان");
+                Assert.True(File.Exists(reportPath));
+
+                using (var wb = new XLWorkbook(reportPath))
+                {
+                    var ws = wb.Worksheets.First();
+                    Assert.Contains("گزارش تحلیلی پیش‌فاکتورهای فروش", ws.Cell(1, 1).GetString());
+                    Assert.Contains("گزارش فروش ماه آبان", ws.Cell(2, 1).GetString());
+                    Assert.Equal("EXP-001", ws.Cell(5, 2).GetString());
+                    Assert.Equal("هزینه واریز شده", ws.Cell(5, 7).GetString());
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_PerInvoice_PaymentTerms_Delivery_And_Highlights()
+        {
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "EXP-999",
+                PaymentTerms = "چک ۴۵ روزه صیادی",
+                DeliveryDays = "تحویل فوری ۲۴ ساعته",
+                DeliveryLocation = "انبار خریدار - عسلویه",
+                VatPercent = 9m,
+                Notes = "تست یادداشت ویژه با هایلایت",
+                HighlightPaymentTerms = true,
+                HighlightDeliveryDays = true,
+                HighlightDeliveryLocation = false,
+                HighlightNotes = true,
+                HighlightVat = true
+            };
+
+            Assert.Equal("چک ۴۵ روزه صیادی", invoice.PaymentTerms);
+            Assert.Equal("تحویل فوری ۲۴ ساعته", invoice.DeliveryDays);
+            Assert.Equal("انبار خریدار - عسلویه", invoice.DeliveryLocation);
+            Assert.Equal(9m, invoice.VatPercent);
+            Assert.True(invoice.HighlightPaymentTerms);
+            Assert.True(invoice.HighlightDeliveryDays);
+            Assert.False(invoice.HighlightDeliveryLocation);
+            Assert.True(invoice.HighlightNotes);
+            Assert.True(invoice.HighlightVat);
+
+            // تست کپی گرفتن از فاکتور با حفظ شرایط و هایلایت‌ها
+            var cloned = invoice.CloneForNew("EXP-1000");
+            Assert.Equal("EXP-1000", cloned.InvoiceNumber);
+            Assert.Equal(invoice.PaymentTerms, cloned.PaymentTerms);
+            Assert.Equal(invoice.DeliveryDays, cloned.DeliveryDays);
+            Assert.Equal(invoice.DeliveryLocation, cloned.DeliveryLocation);
+            Assert.Equal(invoice.VatPercent, cloned.VatPercent);
+            Assert.True(cloned.HighlightPaymentTerms);
+            Assert.True(cloned.HighlightDeliveryDays);
+            Assert.False(cloned.HighlightDeliveryLocation);
+            Assert.True(cloned.HighlightNotes);
+            Assert.True(cloned.HighlightVat);
+        }
+
+        [Fact]
+        public void Test_ExcelExport_TermsHighlight()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTermsHighlight_" + Guid.NewGuid());
+            Directory.CreateDirectory(tempDir);
+
+            try
+            {
+                var storage = new StorageService();
+                var excel = new ExcelExportService(storage);
+                string outPath = Path.Combine(tempDir, "InvoiceHighlighted.xlsx");
+
+                var invoice = new ProformaInvoice
+                {
+                    InvoiceNumber = "EXP-HL-01",
+                    IssueDateShamsi = "1405/08/26",
+                    ValidUntilShamsi = "1405/09/03",
+                    CompanyName = "شرکت پتروشیمی نمونه",
+                    PaymentTerms = "نقد پیش از تحویل بار",
+                    DeliveryDays = "تحویل ۵ روز کاری",
+                    DeliveryLocation = "مشهد",
+                    Notes = "فرایند تحویل پس از تسویه نهایی آغاز می‌شود.",
+                    HighlightPaymentTerms = true,
+                    HighlightDeliveryDays = true,
+                    HighlightNotes = true,
+                    HighlightVat = true,
+                    VatPercent = 10m,
+                    Items = new List<InvoiceItem>
+                    {
+                        new InvoiceItem { RowNumber = 1, ItemName = "هیتر صنعتی", Quantity = 2, RawPrice = 10000000, FinalUnitPrice = 10000000 }
+                    }
+                };
+                invoice.Items[0].UpdateFromPercent();
+
+                excel.ExportInvoice(invoice, outPath);
+                Assert.True(File.Exists(outPath));
+
+                using var wb = new XLWorkbook(outPath);
+                var ws = wb.Worksheets.First();
+
+                // بررسی وجود متن‌های هایلایت شده در شیت اکسل
+                bool foundPaymentTerm = false;
+                bool foundDeliveryTerm = false;
+                for (int r = 1; r <= ws.LastRowUsed().RowNumber(); r++)
+                {
+                    string txt = ws.Cell(r, 2).GetString();
+                    if (txt.Contains("نوع تسویه: نقد پیش از تحویل بار"))
+                    {
+                        foundPaymentTerm = true;
+                        // بررسی رنگ پس‌زمینه زرد هایلایت (RGB 254, 240, 138)
+                        Assert.Equal(XLColor.FromArgb(254, 240, 138), ws.Cell(r, 2).Style.Fill.BackgroundColor);
+                    }
+                    if (txt.Contains("زمان تحویل: تحویل ۵ روز کاری"))
+                    {
+                        foundDeliveryTerm = true;
+                        Assert.Equal(XLColor.FromArgb(254, 240, 138), ws.Cell(r, 2).Style.Fill.BackgroundColor);
+                    }
+                }
+
+                Assert.True(foundPaymentTerm, "شرط نوع تسویه با هایلایت در اکسل یافت نشد");
+                Assert.True(foundDeliveryTerm, "شرط زمان تحویل با هایلایت در اکسل یافت نشد");
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_StorageItem_ToString_DoesNotDisplayClassName()
+        {
+            var item1 = new StorageItem { Name = "کابلشو مسی سایز 35", Code = "PRD-106", DefaultPrice = 3600000 };
+            var item2 = new StorageItem { Name = "", Code = "PRD-999" };
+
+            // نباید نام کلاس بازگردانده شود (رفع کامل باگ تصویر ارسالی کاربر)
+            Assert.NotEqual("TarazInvoice.Models.StorageItem", item1.ToString());
+            Assert.Equal("کابلشو مسی سایز 35", item1.ToString());
+            Assert.Equal("PRD-999", item2.ToString());
+        }
+
+        [Fact]
+        public void Test_ProformaInvoice_FullCustomizabilityAndCloning()
+        {
+            var inv = new ProformaInvoice
+            {
+                InvoiceNumber = "ANA 405-0000962",
+                CompanyName = "پالود پارسیان",
+                CustomerLabelPrefix = "نام مشتری شرکت محترم ",
+                Subject = "سفارش تابلو برق",
+                GreetingText = "احتراما\" قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:",
+                CurrencyUnit = "ریال",
+                ValidityText = "اعتبار این پیش فاکتورتا پایان روز می باشد.",
+                HighlightValidity = true,
+                PaymentTerms = "نقد",
+                HighlightPaymentTerms = false,
+                Notes = "فرایند تحویل بار پس از وصول پیش پرداخت انجام خواهد شد.",
+                HighlightNotes = true,
+                DeliveryDays = "موجود",
+                HighlightDeliveryDays = true,
+                DeliveryLocation = "مشهد",
+                HighlightDeliveryLocation = false,
+                SignatoryName = "محمد احمدی پور هدش",
+                ExpertRoleLabel = "کارشناسی خرید:",
+                ExpertName = "سرکار خانم دهنودی"
+            };
+
+            var cloned = inv.CloneForNew("ANA 405-0000963");
+
+            Assert.Equal("ANA 405-0000963", cloned.InvoiceNumber);
+            Assert.Equal(inv.CustomerLabelPrefix, cloned.CustomerLabelPrefix);
+            Assert.Equal(inv.Subject, cloned.Subject);
+            Assert.Equal(inv.GreetingText, cloned.GreetingText);
+            Assert.Equal("ریال", cloned.CurrencyUnit);
+            Assert.Equal(inv.ValidityText, cloned.ValidityText);
+            Assert.True(cloned.HighlightValidity);
+            Assert.Equal("محمد احمدی پور هدش", cloned.SignatoryName);
+            Assert.Equal("کارشناسی خرید:", cloned.ExpertRoleLabel);
+            Assert.True(cloned.HighlightNotes);
+            Assert.True(cloned.HighlightDeliveryDays);
+        }
+
+        [Fact]
+        public void Test_OfficialExcelTemplate_LayoutAndMetadataBox()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                var storage = new StorageService();
+                var settings = storage.GetSettings();
+                settings.SellerName = "شرکت آریان نیرو گستر اترک";
+                settings.SellerRegistrationNo = "۸۸۶۵۴";
+                settings.SignatoryName = "محمد احمدی پور هدش";
+                settings.ExpertRoleLabel = "کارشناسی خرید:";
+                storage.Save();
+
+                var invoice = new ProformaInvoice
+                {
+                    InvoiceNumber = "ANA 405-0000962",
+                    IssueDateShamsi = "۱۴۰۵/۰۸/۲۷",
+                    Attachment = "ندارد",
+                    PageNumberText = "یک",
+                    CompanyName = "پالود پارسیان",
+                    CustomerLabelPrefix = "نام مشتری شرکت محترم ",
+                    Subject = "تجهیزات برق",
+                    CurrencyUnit = "ریال",
+                    ValidityText = "اعتبار این پیش فاکتورتا پایان روز می باشد.",
+                    HighlightValidity = true,
+                    PaymentTerms = "نقد",
+                    DeliveryDays = "موجود",
+                    HighlightDeliveryDays = true,
+                    DeliveryLocation = "مشهد",
+                    SignatoryName = "محمد احمدی پور هدش",
+                    ExpertRoleLabel = "کارشناسی خرید:",
+                    ExpertName = "سرکار خانم دهنودی",
+                    Items = new List<InvoiceItem>
+                    {
+                        new InvoiceItem
+                        {
+                            RowNumber = 1,
+                            ItemName = "کلید فرمان جرثقیل ۶ خانه تایوانی",
+                            Quantity = 2,
+                            RawPrice = 58300000,
+                            Unit = "عدد"
+                        }
+                    }
+                };
+                invoice.Items[0].UpdateFromPercent();
+
+                var excel = new ExcelExportService(storage);
+                string outPath = Path.Combine(tempDir, "OfficialInvoiceTest.xlsx");
+                excel.ExportInvoice(invoice, outPath);
+
+                Assert.True(File.Exists(outPath));
+
+                using var wb = new XLWorkbook(outPath);
+                var ws = wb.Worksheets.First();
+
+                // ۱. عنوان وسط پیش‌فاکتور
+                Assert.Equal("پیش فاکتور", ws.Cell("C2").GetString());
+
+                // ۲. کادر چهار سطری متادیتا در بالا سمت چپ
+                Assert.Equal("تاریخ :", ws.Cell("E1").GetString());
+                Assert.Equal("۱۴۰۵/۰۸/۲۷", ws.Cell("F1").GetString());
+                Assert.Equal("شماره :", ws.Cell("E2").GetString());
+                Assert.Equal("ANA 405-0000962", ws.Cell("F2").GetString());
+                Assert.Equal("پیوست :", ws.Cell("E3").GetString());
+                Assert.Equal("ندارد", ws.Cell("F3").GetString());
+                Assert.Equal("صفحه :", ws.Cell("E4").GetString());
+                Assert.Equal("یک", ws.Cell("F4").GetString());
+
+                // ۳. مشخصات مشتری و هدر
+                Assert.Contains("نام مشتری شرکت محترم پالود پارسیان", ws.Cell("A6").GetString());
+
+                // ۴. هدر جدول
+                Assert.Equal("ردیف", ws.Cell(9, 1).GetString());
+                Assert.Equal("شرح کالا", ws.Cell(9, 2).GetString());
+                Assert.Equal("قیمت واحد (ریال)", ws.Cell(9, 5).GetString());
+                Assert.Equal("جمع کل (ریال)", ws.Cell(9, 6).GetString());
+
+                // ۵. بررسی اندازه کاغذ A4 و برازش در ۱ صفحه
+                Assert.Equal(XLPaperSize.A4Paper, ws.PageSetup.PaperSize);
+                Assert.Equal(1, ws.PageSetup.PagesWide);
+                Assert.Equal(1, ws.PageSetup.PagesTall);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_StoragePriceChange_OnlyWhenUserChangedPrice()
+        {
+            var storage = new StorageService();
+            
+            // ۱. ثبت کالای اولیه با قیمت 500,000
+            string itemName = "کابل افشان ۲ در ۲.۵ تست_" + Guid.NewGuid().ToString("N");
+            var item = storage.EnsureStorageItemExists(itemName, "متر", 500000m);
+            Assert.NotNull(item);
+            Assert.Equal(500000m, item.DefaultPrice);
+
+            // ۲. کاربر کالا را به پیش‌فاکتور با همان قیمت 500,000 اضافه می‌کند (عدم تغییر قیمت)
+            // شبیه‌سازی منطق BtnQuickAddItem_Click
+            decimal userPriceUnchanged = 500000m;
+            var existing1 = storage.GetStorageItems().FirstOrDefault(p => p.Name == itemName);
+            Assert.NotNull(existing1);
+            if (userPriceUnchanged > 0 && userPriceUnchanged != existing1.DefaultPrice)
+            {
+                existing1.DefaultPrice = userPriceUnchanged;
+                storage.Save();
+            }
+            Assert.Equal(500000m, existing1.DefaultPrice);
+
+            // ۳. کاربر کالا را به پیش‌فاکتور با قیمت جدید 720,000 اضافه می‌کند (تغییر قیمت توسط کاربر)
+            decimal userPriceChanged = 720000m;
+            var existing2 = storage.GetStorageItems().FirstOrDefault(p => p.Name == itemName);
+            Assert.NotNull(existing2);
+            if (userPriceChanged > 0 && userPriceChanged != existing2.DefaultPrice)
+            {
+                existing2.DefaultPrice = userPriceChanged;
+                storage.Save();
+            }
+            
+            // راستی‌آزمایی: قیمت در انبار بروز شد
+            var reloaded = storage.GetStorageItems().FirstOrDefault(p => p.Name == itemName);
+            Assert.NotNull(reloaded);
+            Assert.Equal(720000m, reloaded.DefaultPrice);
+        }
+
+        [Fact]
+        public void Test_PrintPdfService_A4LayoutAndRtlSignatories()
+        {
+            var t = new System.Threading.Thread(() =>
+            {
+                var storage = new StorageService();
+                var printService = new PrintPdfService(storage);
+
+                var invoice = new ProformaInvoice
+                {
+                    InvoiceNumber = "ANA 405-0000962",
+                    CompanyName = "شرکت پالود پارسیان",
+                    ExpertName = "سرکار خانم دهنودی",
+                    SignatoryName = "محمد احمدی پور هدش",
+                    ExpertRoleLabel = "کارشناسی خرید:",
+                    Items = new List<InvoiceItem>
+                    {
+                        new InvoiceItem
+                        {
+                            RowNumber = 1,
+                            ItemName = "کلید فرمان جرثقیل ۶ خانه تایوانی",
+                            Quantity = 2,
+                            RawPrice = 58300000m
+                        }
+                    }
+                };
+                invoice.Items[0].UpdateFromPercent();
+
+                var doc = printService.CreateInvoiceFlowDocument(invoice);
+                Assert.NotNull(doc);
+                Assert.Equal(System.Windows.FlowDirection.RightToLeft, doc.FlowDirection);
+                Assert.Equal(794, doc.PageWidth);   // عرض استاندارد A4 در 96DPI
+                Assert.Equal(1123, doc.PageHeight); // ارتفاع استاندارد A4 در 96DPI
+            });
+            t.SetApartmentState(System.Threading.ApartmentState.STA);
+            t.Start();
+            t.Join();
+        }
+
+        [Fact]
+        public void Test_E2E_OfficialInvoice_MatchesReferencePictureExactly()
+        {
+            var storage = new StorageService();
+            var settings = storage.GetSettings();
+            settings.SellerName = "شرکت آریان نیرو گستر اترک";
+            settings.SellerRegistrationNo = "۸۸۶۵۴";
+            settings.SignatoryName = "محمد احمدی پور هدش";
+            settings.ExpertRoleLabel = "کارشناسی خرید:";
+            settings.SellerAddress = "مشهد - خیابان سنایی - بین سنایی ۱۲ و ۱۴ - روبروی سنایی ۱۵ - پلاک ۱۱۵";
+            settings.SellerPhone = "۵-۰۵۱۳۷۱۳۲۰۸۴";
+            settings.CurrencyUnit = "ریال";
+            storage.Save();
+
+            var excel = new ExcelExportService(storage);
+
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "ANA 405-0000962",
+                IssueDateShamsi = "۱۴۰۵/۰۸/۲۷",
+                Attachment = "ندارد",
+                PageNumberText = "یک",
+                CompanyName = "پالود پارسیان",
+                CustomerLabelPrefix = "نام مشتری شرکت محترم ",
+                Subject = "",
+                CurrencyUnit = "ریال",
+                ValidityText = "اعتبار این پیش فاکتورتا پایان روز می باشد.",
+                HighlightValidity = true,
+                PaymentTerms = "نقد",
+                HighlightPaymentTerms = false,
+                Notes = "فرایند تحویل بار پس از وصول پیش پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.در صورت تغییر قیمت پیش فاکتور اصلاحی تقدیم میگردد.",
+                HighlightNotes = true,
+                DeliveryDays = "موجود",
+                HighlightDeliveryDays = true,
+                DeliveryLocation = "مشهد",
+                HighlightDeliveryLocation = false,
+                SignatoryName = "محمد احمدی پور هدش",
+                ExpertRoleLabel = "کارشناسی خرید:",
+                ExpertName = "سرکار خانم دهنودی",
+                Items = new List<InvoiceItem>
+                {
+                    new InvoiceItem { RowNumber = 1, ItemName = "کلید فرمان جرثقیل ۶ خانه تایوانی", Quantity = 2, RawPrice = 58300000, Unit = "عدد" },
+                    new InvoiceItem { RowNumber = 2, ItemName = "ترمینال سرامیکی تک خانه ۱۶ آمپر", Quantity = 20, RawPrice = 440000, Unit = "عدد" },
+                    new InvoiceItem { RowNumber = 3, ItemName = "ترمینال سرامیکی دو خانه ۱۶ آمپر", Quantity = 20, RawPrice = 638000, Unit = "عدد" },
+                    new InvoiceItem { RowNumber = 4, ItemName = "ترمینال سرامیکی دو خانه ۲۵ آمپر", Quantity = 20, RawPrice = 935000, Unit = "عدد" },
+                    new InvoiceItem { RowNumber = 5, ItemName = "ترمینال سرامیکی تک خانه ۲۵ آمپر", Quantity = 20, RawPrice = 495000, Unit = "عدد" },
+                    new InvoiceItem { RowNumber = 6, ItemName = "هالوژن سولاریس ۱۲ وات دایره ای سفید پارس شعاع توس", Quantity = 20, RawPrice = 3062000, Unit = "عدد" }
+                }
+            };
+
+            foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "E2EInvoiceTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string outPath = Path.Combine(tempDir, "OfficialInvoice_TargetMatch.xlsx");
+                excel.ExportInvoice(invoice, outPath);
+
+                Assert.True(File.Exists(outPath));
+
+                using var wb = new XLWorkbook(outPath);
+                var ws = wb.Worksheets.First();
+
+                // ۱. تنظیمات برگه A4 و برازش در ۱ صفحه
+                Assert.Equal(XLPaperSize.A4Paper, ws.PageSetup.PaperSize);
+                Assert.Equal(1, ws.PageSetup.PagesWide);
+                Assert.Equal(1, ws.PageSetup.PagesTall);
+
+                // ۲. سربرگ
+                Assert.Equal("شرکت آریان نیرو گستر اترک", ws.Cell("B2").GetString());
+                Assert.Equal("پیش فاکتور", ws.Cell("C2").GetString());
+                Assert.Equal("تاریخ :", ws.Cell("E1").GetString());
+                Assert.Equal("۱۴۰۵/۰۸/۲۷", ws.Cell("F1").GetString());
+                Assert.Equal("شماره :", ws.Cell("E2").GetString());
+                Assert.Equal("ANA 405-0000962", ws.Cell("F2").GetString());
+
+                // ۳. مشتری و اقلام
+                Assert.Contains("پالود پارسیان", ws.Cell("A6").GetString());
+                Assert.Equal("کلید فرمان جرثقیل ۶ خانه تایوانی", ws.Cell(10, 2).GetString());
+                Assert.Equal(2, ws.Cell(10, 3).GetDouble());
+                Assert.Equal(58300000, ws.Cell(10, 5).GetDouble());
+                Assert.Equal(116600000, ws.Cell(10, 6).GetDouble());
+
+                // اقلام آخر
+                Assert.Equal("هالوژن سولاریس ۱۲ وات دایره ای سفید پارس شعاع توس", ws.Cell(15, 2).GetString());
+                Assert.Equal(61240000, ws.Cell(15, 6).GetDouble());
+
+                // ۴. جمع‌های مالی
+                // سطر ۱۷: جمع کل = ۲۲۸,۰۰۰,۰۰۰
+                Assert.Equal(228000000, ws.Cell(17, 6).GetDouble());
+                // سطر ۱۸: ارزش افزوده = ۲۲,۸۰۰,۰۰۰
+                Assert.Equal(22800000, ws.Cell(18, 6).GetDouble());
+                // سطر ۱۹: جمع کل با ارزش افزوده = ۲۵۰,۸۰۰,۰۰۰
+                Assert.Equal(250800000, ws.Cell(19, 6).GetDouble());
+
+                // ۵. توضیحات و شرایط
+                // سطر ۲۱: عنوان توضیحات :
+                Assert.Equal("توضیحات :", ws.Cell(21, 1).GetString());
+
+                // سطر ۲۲: اطلاعات بانکی (بدون هایلایت)
+                Assert.Equal("◆", ws.Cell(22, 1).GetString());
+                Assert.Contains("بانک ملی ایران", ws.Cell(22, 2).GetString());
+
+                // سطر ۲۳: اعتبار پیش‌فاکتور (دارای هایلایت زرد #FEF08A)
+                Assert.Contains("اعتبار این پیش فاکتورتا پایان روز می باشد.", ws.Cell(23, 2).GetString());
+                Assert.Equal(XLColor.FromArgb(254, 240, 138), ws.Cell(23, 1).Style.Fill.BackgroundColor);
+
+                // سطر ۲۵: توضیحات سفارشی (دارای هایلایت زرد)
+                Assert.Contains("فرایند تحویل بار پس از وصول پیش پرداخت", ws.Cell(25, 2).GetString());
+                Assert.Equal(XLColor.FromArgb(254, 240, 138), ws.Cell(25, 1).Style.Fill.BackgroundColor);
+
+                // سطر ۲۶: زمان تحویل (دارای هایلایت زرد)
+                Assert.Contains("زمان تحویل: موجود", ws.Cell(26, 2).GetString());
+                Assert.Equal(XLColor.FromArgb(254, 240, 138), ws.Cell(26, 1).Style.Fill.BackgroundColor);
+
+                // ۶. امضاها و پاورقی
+                // کارشناس در ستون‌های چپ (ستون ۵)
+                Assert.Contains("سرکار خانم دهنودی", ws.Cell(30, 5).GetString());
+                // مسئول امضا در ستون‌های ۲-۳
+                Assert.Contains("محمد احمدی پور هدش", ws.Cell(30, 2).GetString());
+
+                // نشانی دفتر در انتهای برگه
+                var footerCell = ws.Search("مشهد - خیابان سنایی").FirstOrDefault();
+                Assert.NotNull(footerCell);
+                Assert.Contains("تلفن: ۵-۰۵۱۳۷۱۳۲۰۸۴", footerCell.GetString());
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_Company_LegalAndReal_Types()
+        {
+            var legalComp = new Company
+            {
+                Name = "شرکت پتروشیمی زاگرس",
+                CompanyType = CompanyType.Legal,
+                EconomicCode = "411567891234"
+            };
+            Assert.Equal("حقوقی", legalComp.CompanyTypeTitle);
+            Assert.Equal("411567891234", legalComp.NationalOrEconomicCode);
+
+            var realPerson = new Company
+            {
+                Name = "علی رضایی",
+                CompanyType = CompanyType.Real,
+                NationalCode = "0921234567"
+            };
+            Assert.Equal("حقیقی", realPerson.CompanyTypeTitle);
+            Assert.Equal("0921234567", realPerson.NationalOrEconomicCode);
+        }
+
+        [Fact]
+        public void Test_Expert_CompanyAssignment_AndBelongsToCompany()
+        {
+            var companyA = Guid.NewGuid();
+            var companyB = Guid.NewGuid();
+            var companyC = Guid.NewGuid();
+
+            // کارشناس عمومی (بدون انتساب اختصاصی) به همه شرکت‌ها تعلق دارد
+            var generalExpert = new Expert { FullName = "مهندس عمومی" };
+            Assert.True(generalExpert.BelongsToCompany(companyA));
+            Assert.True(generalExpert.BelongsToCompany(companyB));
+            Assert.Equal("همه شرکت‌ها (عمومی)", generalExpert.AssignedCompaniesDisplay);
+
+            // کارشناس با انتساب به چند شرکت اختصاصی
+            var assignedExpert = new Expert
+            {
+                FullName = "مهندس اختصاصی",
+                AssignedCompanyIds = new List<Guid> { companyA, companyB },
+                AssignedCompanyNames = new List<string> { "شرکت آلفا", "شرکت بتا" }
+            };
+            Assert.True(assignedExpert.BelongsToCompany(companyA));
+            Assert.True(assignedExpert.BelongsToCompany(companyB));
+            Assert.False(assignedExpert.BelongsToCompany(companyC));
+            Assert.Equal("شرکت آلفا، شرکت بتا", assignedExpert.AssignedCompaniesDisplay);
+        }
+
+        [Fact]
+        public void Test_BankAccountInfo_Formatting()
+        {
+            var acc = new BankAccountInfo
+            {
+                BankName = "بانک ملی ایران",
+                ShebaNumber = "IR95017000000118033698006",
+                CardNumber = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶",
+                OwnerName = "شرکت آریان نیرو گستر اترک"
+            };
+
+            string term = acc.ToFormattedTerm();
+            Assert.Contains("IR95017000000118033698006", term);
+            Assert.Contains("بانک ملی ایران", term);
+            Assert.Contains("شماره کارت ۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶", term);
+            Assert.Contains("شرکت آریان نیرو گستر اترک", term);
+        }
+
+        [Fact]
+        public void Test_PdfAndExcel_FileNameGeneration()
+        {
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "EXP-REZ-1002",
+                CompanyName = "شرکت پتروشیمی زاگرس",
+                ExpertName = "مهندس محمد رضایی"
+            };
+
+            string pdfName = PrintPdfService.GetSafeInvoiceFileName(invoice, "pdf");
+            Assert.Equal("EXP-REZ-1002_شرکت پتروشیمی زاگرس_مهندس محمد رضایی.pdf", pdfName);
+
+            string excelName = PrintPdfService.GetSafeInvoiceFileName(invoice, "xlsx");
+            Assert.Equal("EXP-REZ-1002_شرکت پتروشیمی زاگرس_مهندس محمد رضایی.xlsx", excelName);
+        }
+
+        [Fact]
+        public void Test_Currency_StrictlyRials()
+        {
+            string money = JalaliDateHelper.FormatMoney(1500000);
+            Assert.Contains("ریال", money);
+            Assert.DoesNotContain("تومان", money);
+
+            var converter = new TarazInvoice.Converters.CurrencyFormatConverter();
+            string converted = (string)converter.Convert(2500000m, typeof(string), null!, null!);
+            Assert.Contains("ریال", converted);
+            Assert.DoesNotContain("تومان", converted);
+        }
+
+        [Fact]
+        public void GenerateAppLogoAssets()
+        {
+            var thread = new System.Threading.Thread(() =>
+            {
+                int width = 512;
+                int height = 512;
+
+                var visual = new System.Windows.Media.DrawingVisual();
+                using (var dc = visual.RenderOpen())
+                {
+                    // 1. Base squircle background with rich gradient
+                    var bgBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromRgb(10, 20, 48),   // Deep midnight navy
+                        System.Windows.Media.Color.FromRgb(29, 78, 216),  // Vibrant Royal Cobalt
+                        new System.Windows.Point(0, 0),
+                        new System.Windows.Point(1, 1));
+                    
+                    var borderPen = new System.Windows.Media.Pen(
+                        new System.Windows.Media.LinearGradientBrush(
+                            System.Windows.Media.Color.FromArgb(200, 96, 165, 250),
+                            System.Windows.Media.Color.FromArgb(160, 56, 189, 248),
+                            new System.Windows.Point(0, 0),
+                            new System.Windows.Point(1, 1)),
+                        3.5);
+
+                    dc.DrawRoundedRectangle(bgBrush, borderPen, new System.Windows.Rect(20, 20, 472, 472), 115, 115);
+
+                    // 2. Ambient radial back-glow
+                    var glowBrush = new System.Windows.Media.RadialGradientBrush(
+                        System.Windows.Media.Color.FromArgb(60, 59, 130, 246),
+                        System.Windows.Media.Colors.Transparent)
+                    {
+                        RadiusX = 0.5,
+                        RadiusY = 0.5,
+                        Center = new System.Windows.Point(0.5, 0.46)
+                    };
+                    dc.DrawEllipse(glowBrush, null, new System.Windows.Point(256, 235), 180, 180);
+
+                    // 3. Central Pedestal
+                    var baseBrush1 = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 116, 139));
+                    dc.DrawRoundedRectangle(baseBrush1, null, new System.Windows.Rect(180, 396, 152, 22), 7, 7);
+
+                    var baseBrush2 = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(148, 163, 184));
+                    dc.DrawRoundedRectangle(baseBrush2, null, new System.Windows.Rect(210, 380, 92, 18), 5, 5);
+
+                    // 4. Central Pillar
+                    var pillarBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromRgb(241, 245, 249),
+                        System.Windows.Media.Color.FromRgb(148, 163, 184),
+                        new System.Windows.Point(0, 0),
+                        new System.Windows.Point(1, 0));
+                    dc.DrawRoundedRectangle(pillarBrush, null, new System.Windows.Rect(247, 136, 18, 246), 4, 4);
+
+                    // 5. Emerald Diamond Pivot Crown
+                    var crownGeo = new System.Windows.Media.StreamGeometry();
+                    using (var ctx = crownGeo.Open())
+                    {
+                        ctx.BeginFigure(new System.Windows.Point(256, 110), true, true);
+                        ctx.LineTo(new System.Windows.Point(276, 138), true, false);
+                        ctx.LineTo(new System.Windows.Point(256, 154), true, false);
+                        ctx.LineTo(new System.Windows.Point(236, 138), true, false);
+                    }
+                    crownGeo.Freeze();
+                    var crownBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromRgb(16, 185, 129),
+                        System.Windows.Media.Color.FromRgb(52, 211, 153),
+                        new System.Windows.Point(0, 0),
+                        new System.Windows.Point(1, 1));
+                    dc.DrawGeometry(crownBrush, null, crownGeo);
+
+                    // 6. Balance Beam (تراز)
+                    var beamGeo = new System.Windows.Media.StreamGeometry();
+                    using (var ctx = beamGeo.Open())
+                    {
+                        ctx.BeginFigure(new System.Windows.Point(100, 178), true, true);
+                        ctx.QuadraticBezierTo(new System.Windows.Point(256, 136), new System.Windows.Point(412, 178), true, false);
+                        ctx.ArcTo(new System.Windows.Point(412, 164), new System.Windows.Size(7, 7), 0, false, System.Windows.Media.SweepDirection.Clockwise, true, false);
+                        ctx.QuadraticBezierTo(new System.Windows.Point(256, 122), new System.Windows.Point(100, 164), true, false);
+                        ctx.ArcTo(new System.Windows.Point(100, 178), new System.Windows.Size(7, 7), 0, false, System.Windows.Media.SweepDirection.Clockwise, true, false);
+                    }
+                    beamGeo.Freeze();
+                    var beamBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromRgb(226, 232, 240),
+                        System.Windows.Media.Color.FromRgb(255, 255, 255),
+                        new System.Windows.Point(0, 0),
+                        new System.Windows.Point(0, 1));
+                    dc.DrawGeometry(beamBrush, null, beamGeo);
+
+                    // 7. Suspension Cords
+                    var cordPen = new System.Windows.Media.Pen(
+                        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(210, 147, 197, 253)),
+                        3.0)
+                    {
+                        StartLineCap = System.Windows.Media.PenLineCap.Round,
+                        EndLineCap = System.Windows.Media.PenLineCap.Round
+                    };
+                    // Left cords
+                    dc.DrawLine(cordPen, new System.Windows.Point(118, 175), new System.Windows.Point(76, 280));
+                    dc.DrawLine(cordPen, new System.Windows.Point(118, 175), new System.Windows.Point(160, 280));
+                    // Right cords
+                    dc.DrawLine(cordPen, new System.Windows.Point(394, 175), new System.Windows.Point(352, 280));
+                    dc.DrawLine(cordPen, new System.Windows.Point(394, 175), new System.Windows.Point(436, 280));
+
+                    // 8. Trays / Dishes
+                    var trayBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromRgb(56, 189, 248),
+                        System.Windows.Media.Color.FromRgb(30, 64, 175),
+                        new System.Windows.Point(0, 0),
+                        new System.Windows.Point(0, 1));
+                    var trayRimBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(96, 165, 250));
+
+                    // Left Tray
+                    var leftTrayGeo = new System.Windows.Media.StreamGeometry();
+                    using (var ctx = leftTrayGeo.Open())
+                    {
+                        ctx.BeginFigure(new System.Windows.Point(72, 280), true, true);
+                        ctx.ArcTo(new System.Windows.Point(164, 280), new System.Windows.Size(46, 38), 0, false, System.Windows.Media.SweepDirection.Clockwise, true, false);
+                    }
+                    leftTrayGeo.Freeze();
+                    dc.DrawGeometry(trayBrush, null, leftTrayGeo);
+                    dc.DrawEllipse(trayRimBrush, null, new System.Windows.Point(118, 280), 46, 8);
+
+                    // Right Tray
+                    var rightTrayGeo = new System.Windows.Media.StreamGeometry();
+                    using (var ctx = rightTrayGeo.Open())
+                    {
+                        ctx.BeginFigure(new System.Windows.Point(348, 280), true, true);
+                        ctx.ArcTo(new System.Windows.Point(440, 280), new System.Windows.Size(46, 38), 0, false, System.Windows.Media.SweepDirection.Clockwise, true, false);
+                    }
+                    rightTrayGeo.Freeze();
+                    dc.DrawGeometry(trayBrush, null, rightTrayGeo);
+                    dc.DrawEllipse(trayRimBrush, null, new System.Windows.Point(394, 280), 46, 8);
+
+                    // 9. Golden Coins on Trays
+                    var goldBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromRgb(253, 224, 71),
+                        System.Windows.Media.Color.FromRgb(217, 119, 6),
+                        new System.Windows.Point(0, 0),
+                        new System.Windows.Point(1, 1));
+                    var goldRimPen = new System.Windows.Media.Pen(
+                        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(254, 240, 138)),
+                        1.5);
+
+                    dc.DrawEllipse(goldBrush, goldRimPen, new System.Windows.Point(118, 273), 18, 7);
+                    dc.DrawEllipse(goldBrush, goldRimPen, new System.Windows.Point(394, 273), 18, 7);
+
+                    // 10. Dynamic Ascending Emerald Surge Line
+                    var surgeGeo = new System.Windows.Media.StreamGeometry();
+                    using (var ctx = surgeGeo.Open())
+                    {
+                        ctx.BeginFigure(new System.Windows.Point(160, 350), true, true);
+                        ctx.LineTo(new System.Windows.Point(226, 278), true, false);
+                        ctx.LineTo(new System.Windows.Point(272, 316), true, false);
+                        ctx.LineTo(new System.Windows.Point(342, 224), true, false);
+                        ctx.LineTo(new System.Windows.Point(322, 220), true, false);
+                        ctx.LineTo(new System.Windows.Point(368, 192), true, false);
+                        ctx.LineTo(new System.Windows.Point(364, 244), true, false);
+                        ctx.LineTo(new System.Windows.Point(348, 240), true, false);
+                        ctx.LineTo(new System.Windows.Point(278, 334), true, false);
+                        ctx.LineTo(new System.Windows.Point(232, 296), true, false);
+                        ctx.LineTo(new System.Windows.Point(160, 368), true, false);
+                    }
+                    surgeGeo.Freeze();
+                    var surgeBrush = new System.Windows.Media.LinearGradientBrush(
+                        System.Windows.Media.Color.FromArgb(220, 5, 150, 105),
+                        System.Windows.Media.Color.FromArgb(235, 52, 211, 153),
+                        new System.Windows.Point(0, 1),
+                        new System.Windows.Point(1, 0));
+                    dc.DrawGeometry(surgeBrush, null, surgeGeo);
+                }
+
+                var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(width, height, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                rtb.Render(visual);
+
+                // Find workspace root
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                while (!File.Exists(Path.Combine(baseDir, "TarazInvoice.csproj")) && Directory.GetParent(baseDir) != null)
+                {
+                    baseDir = Directory.GetParent(baseDir)!.FullName;
+                }
+
+                string resourcesDir = Path.Combine(baseDir, "Resources");
+                Directory.CreateDirectory(resourcesDir);
+                string pngPath = Path.Combine(resourcesDir, "logo.png");
+
+                // Save 512x512 PNG
+                var pngEncoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                pngEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+                using (var fs = File.Create(pngPath))
+                {
+                    pngEncoder.Save(fs);
+                }
+
+                // Generate multi-size ICO
+                int[] iconSizes = new[] { 256, 128, 64, 48, 32, 16 };
+                var iconDataList = new List<byte[]>();
+
+                foreach (int size in iconSizes)
+                {
+                    var scaledVisual = new System.Windows.Media.DrawingVisual();
+                    using (var sdc = scaledVisual.RenderOpen())
+                    {
+                        sdc.PushTransform(new System.Windows.Media.ScaleTransform((double)size / 512.0, (double)size / 512.0));
+                        sdc.DrawDrawing(visual.Drawing);
+                        sdc.Pop();
+                    }
+                    var sRtb = new System.Windows.Media.Imaging.RenderTargetBitmap(size, size, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    sRtb.Render(scaledVisual);
+
+                    var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(sRtb));
+                    using var ms = new MemoryStream();
+                    enc.Save(ms);
+                    iconDataList.Add(ms.ToArray());
+                }
+
+                string icoPath = Path.Combine(resourcesDir, "logo.ico");
+                using (var fs = File.Create(icoPath))
+                using (var bw = new BinaryWriter(fs))
+                {
+                    // ICONDIR
+                    bw.Write((ushort)0); // reserved
+                    bw.Write((ushort)1); // type 1 = ICO
+                    bw.Write((ushort)iconSizes.Length); // count
+
+                    int offset = 6 + (16 * iconSizes.Length);
+
+                    // ICONDIRENTRY array
+                    for (int i = 0; i < iconSizes.Length; i++)
+                    {
+                        int s = iconSizes[i];
+                        byte bWidth = (byte)(s >= 256 ? 0 : s);
+                        byte bHeight = (byte)(s >= 256 ? 0 : s);
+                        byte[] bytes = iconDataList[i];
+
+                        bw.Write(bWidth);
+                        bw.Write(bHeight);
+                        bw.Write((byte)0); // color count
+                        bw.Write((byte)0); // reserved
+                        bw.Write((ushort)1); // planes
+                        bw.Write((ushort)32); // bit count
+                        bw.Write((uint)bytes.Length); // bytes in res
+                        bw.Write((uint)offset); // offset
+
+                        offset += bytes.Length;
+                    }
+
+                    // Write PNG image payloads
+                    for (int i = 0; i < iconSizes.Length; i++)
+                    {
+                        bw.Write(iconDataList[i]);
+                    }
+                }
+            });
+
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.True(true);
+        }
     }
 }

@@ -18,15 +18,9 @@ namespace TarazInvoice.Services
         public void ExportInvoice(ProformaInvoice invoice, string outputPath, string? customTemplatePath = null)
         {
             var settings = _storage.GetSettings();
-            string templateToUse = !string.IsNullOrWhiteSpace(customTemplatePath) && File.Exists(customTemplatePath)
-                ? customTemplatePath
-                : (!string.IsNullOrWhiteSpace(settings.CustomTemplatePath) && File.Exists(settings.CustomTemplatePath)
-                    ? settings.CustomTemplatePath
-                    : string.Empty);
-
-            if (!string.IsNullOrEmpty(templateToUse))
+            if (!string.IsNullOrWhiteSpace(customTemplatePath) && File.Exists(customTemplatePath))
             {
-                ExportUsingTemplate(invoice, templateToUse, outputPath, settings);
+                ExportUsingTemplate(invoice, customTemplatePath, outputPath, settings);
             }
             else
             {
@@ -34,15 +28,13 @@ namespace TarazInvoice.Services
             }
         }
 
-        /// <summary>
-        /// پر کردن قالب سفارشی اکسل کاربر با حفظ ۱۰۰٪ استایل، رنگ‌ها، فونت‌ها و فرمول‌ها
-        /// </summary>
         private void ExportUsingTemplate(ProformaInvoice invoice, string templatePath, string outputPath, AppSettings settings)
         {
-            using var workbook = new XLWorkbook(templatePath);
-            var worksheet = workbook.Worksheets.FirstOrDefault() ?? workbook.Worksheets.Add("پیش‌فاکتور");
+            using var fs = new FileStream(templatePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var workbook = new XLWorkbook(fs);
+            var worksheet = workbook.Worksheets.FirstOrDefault() ?? workbook.Worksheet(1);
 
-            // جایگزینی تگ‌های متنی در کل شیت
+            // جایگزینی هوشمند تگ‌های متنی در کل شیت اول
             ReplacePlaceholder(worksheet, "{{INVOICE_NO}}", invoice.InvoiceNumber);
             ReplacePlaceholder(worksheet, "{{شماره_فاکتور}}", invoice.InvoiceNumber);
             ReplacePlaceholder(worksheet, "{{DATE}}", invoice.IssueDateShamsi);
@@ -76,31 +68,37 @@ namespace TarazInvoice.Services
             ReplacePlaceholder(worksheet, "{{SELLER_NAT_CODE}}", settings.SellerNationalCode);
             ReplacePlaceholder(worksheet, "{{شناسه_ملی_فروشنده}}", settings.SellerNationalCode);
             ReplacePlaceholder(worksheet, "{{SUBTOTAL}}", $"{invoice.TotalRawAmount:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{مبلغ_ناخالص}}", $"{invoice.TotalRawAmount:N0} {settings.CurrencyUnit}");
             ReplacePlaceholder(worksheet, "{{TOTAL_DISCOUNT}}", $"{invoice.TotalDiscount:N0} {settings.CurrencyUnit}");
-            ReplacePlaceholder(worksheet, "{{مجموع_تخفیف}}", $"{invoice.TotalDiscount:N0} {settings.CurrencyUnit}");
+            ReplacePlaceholder(worksheet, "{{TOTAL_PROFIT}}", $"{invoice.TotalProfit:N0} {settings.CurrencyUnit}");
             ReplacePlaceholder(worksheet, "{{GRAND_TOTAL}}", $"{invoice.GrandTotal:N0} {settings.CurrencyUnit}");
             ReplacePlaceholder(worksheet, "{{مبلغ_کل}}", $"{invoice.GrandTotal:N0} {settings.CurrencyUnit}");
             ReplacePlaceholder(worksheet, "{{GRAND_TOTAL_WORDS}}", JalaliDateHelper.NumberToWords((long)invoice.GrandTotal) + " " + settings.CurrencyUnit);
-            ReplacePlaceholder(worksheet, "{{مبلغ_به_حروف}}", JalaliDateHelper.NumberToWords((long)invoice.GrandTotal) + " " + settings.CurrencyUnit);
             ReplacePlaceholder(worksheet, "{{NOTES}}", invoice.Notes);
-            ReplacePlaceholder(worksheet, "{{شرایط_پرداخت}}", invoice.Notes);
 
-            // یافتن محل درج اقلام در جدول
-            // بررسی می‌کنیم آیا سلولی با مقدار {{ITEMS}} یا {{اقلام}} وجود دارد؟
-            int startRow = settings.TemplateItemStartRow;
-            int startCol = 1;
+            int startRow = 8;
+            int colRow = 1;
+            int colName = 2;
+            int colQty = 3;
+            int colPrice = 4;
+            int colTotal = 5;
 
             var itemsCell = worksheet.Search("{{ITEMS}}").FirstOrDefault() ?? worksheet.Search("{{اقلام}}").FirstOrDefault();
             if (itemsCell != null)
             {
                 startRow = itemsCell.Address.RowNumber;
-                startCol = itemsCell.Address.ColumnNumber;
-                itemsCell.Value = ""; // پاک کردن متن تگ
+                int tagCol = itemsCell.Address.ColumnNumber;
+                itemsCell.Value = "";
+                colRow = tagCol;
+                colName = tagCol + 1;
+                colQty = tagCol + 2;
+                colPrice = tagCol + 3;
+                colTotal = tagCol + 4;
             }
 
-            // درج سطرهای اقلام (فقط شرح، تعداد، قیمت نهایی فروش و جمع سطر)
             int currentRow = startRow;
+            var patternRow = worksheet.Row(startRow);
+            double patternHeight = patternRow.Height > 0 ? patternRow.Height : 22;
+
             for (int i = 0; i < invoice.Items.Count; i++)
             {
                 var item = invoice.Items[i];
@@ -108,24 +106,47 @@ namespace TarazInvoice.Services
                 {
                     worksheet.Row(currentRow).InsertRowsBelow(1);
                     currentRow++;
+                    var newRow = worksheet.Row(currentRow);
+                    newRow.Height = patternHeight;
+
+                    for (int c = 1; c <= 10; c++)
+                    {
+                        newRow.Cell(c).Style = patternRow.Cell(c).Style;
+                    }
                 }
 
-                worksheet.Cell(currentRow, startCol).Value = item.RowNumber;
-                worksheet.Cell(currentRow, startCol + 1).Value = item.ItemName;
-                worksheet.Cell(currentRow, startCol + 2).Value = (double)item.Quantity;
-                worksheet.Cell(currentRow, startCol + 3).Value = (double)item.FinalUnitPrice;
-                worksheet.Cell(currentRow, startCol + 4).Value = (double)item.TotalPrice;
+                worksheet.Cell(currentRow, colRow).Value = item.RowNumber;
+                worksheet.Cell(currentRow, colName).Value = item.ItemName;
+                worksheet.Cell(currentRow, colQty).Value = (double)item.Quantity;
+                worksheet.Cell(currentRow, colPrice).Value = (double)item.FinalUnitPrice;
+                worksheet.Cell(currentRow, colTotal).Value = (double)item.TotalPrice;
 
-                // فرمت عددی با جداکننده سه رقمی
-                worksheet.Cell(currentRow, startCol + 3).Style.NumberFormat.Format = "#,##0";
-                worksheet.Cell(currentRow, startCol + 4).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, colPrice).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, colTotal).Style.NumberFormat.Format = "#,##0";
             }
 
             workbook.SaveAs(outputPath);
         }
 
+        public static int ParseColumnToNumber(string? colStr, int defaultCol = 1)
+        {
+            if (string.IsNullOrWhiteSpace(colStr)) return defaultCol;
+            colStr = colStr.Trim().ToUpperInvariant();
+            if (int.TryParse(colStr, out int num) && num > 0) return num;
+
+            int result = 0;
+            foreach (char c in colStr)
+            {
+                if (c >= 'A' && c <= 'Z')
+                {
+                    result = result * 26 + (c - 'A' + 1);
+                }
+            }
+            return result > 0 ? result : defaultCol;
+        }
+
         /// <summary>
-        /// خروجی استاندارد و شکیل پیش‌فرض با راست‌چین، استایل اداری و فونت زیبا
+        /// خروجی استاندارد و رسمی مصوب سیستم، دقیقاً مطابق نمونه سربرگ و پیش‌فاکتور آریان نیرو گستر اترک
         /// </summary>
         private void ExportDefaultFormat(ProformaInvoice invoice, string outputPath, AppSettings settings)
         {
@@ -133,86 +154,127 @@ namespace TarazInvoice.Services
             var ws = workbook.Worksheets.Add("پیش‌فاکتور");
             ws.RightToLeft = true; // راست‌چین
 
-            // تنظیم فونت کلی
-            ws.Style.Font.FontName = "Tahoma";
+            // تنظیم فونت و گزینه‌های صفحه
+            string fontName = !string.IsNullOrWhiteSpace(settings.TableFontFamily) ? settings.TableFontFamily : "Vazirmatn";
+            ws.Style.Font.FontName = fontName;
             ws.Style.Font.FontSize = 10;
+            ws.ShowGridLines = true;
 
-            // سربرگ عنوان اصلی
-            ws.Range("A1:E1").Merge();
-            var titleCell = ws.Cell("A1");
-            titleCell.Value = "پـیـش‌فـاکـتـور فـروش (Proforma Invoice)";
+            ws.PageSetup.PaperSize = XLPaperSize.A4Paper;
+            ws.PageSetup.PageOrientation = XLPageOrientation.Portrait;
+            ws.PageSetup.FitToPages(1, 1);
+            ws.PageSetup.Margins.Top = 0.35;
+            ws.PageSetup.Margins.Bottom = 0.35;
+            ws.PageSetup.Margins.Left = 0.35;
+            ws.PageSetup.Margins.Right = 0.35;
+
+            string currUnit = !string.IsNullOrWhiteSpace(invoice.CurrencyUnit) ? invoice.CurrencyUnit : (!string.IsNullOrWhiteSpace(settings.CurrencyUnit) ? settings.CurrencyUnit : "ریال");
+
+            // ==================== ۱. سربرگ پیش‌فاکتور (مطابق دقیق تصویر) ====================
+            // الف) بخش راست: لوگو در ستون ۱ (ردیف) و نام شرکت در ستون ۲ (شرح کالا) با چیدمان وسط‌چین
+            string logoPath = !string.IsNullOrWhiteSpace(settings.CompanyLogoPath) && File.Exists(settings.CompanyLogoPath) 
+                ? settings.CompanyLogoPath 
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "logo.png");
+
+            if (File.Exists(logoPath))
+            {
+                try
+                {
+                    var pic = ws.AddPicture(logoPath);
+                    pic.MoveTo(ws.Cell(2, 1), 6, 2);
+                    pic.WithSize(46, 46);
+                }
+                catch { }
+
+                ws.Range("B2:B3").Merge();
+                var sellerCell = ws.Cell("B2");
+                sellerCell.Value = settings.SellerName;
+                sellerCell.Style.Font.Bold = true;
+                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)settings.CompanyNameFontSize : 18;
+                sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
+                sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            }
+            else
+            {
+                ws.Range("A2:B3").Merge();
+                var sellerCell = ws.Cell("A2");
+                sellerCell.Value = settings.SellerName;
+                sellerCell.Style.Font.Bold = true;
+                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)settings.CompanyNameFontSize : 18;
+                sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
+                sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            }
+
+            // ب) بخش وسط: عنوان پیش فاکتور
+            ws.Range("C2:D3").Merge();
+            var titleCell = ws.Cell("C2");
+            titleCell.Value = "پیش فاکتور";
             titleCell.Style.Font.Bold = true;
-            titleCell.Style.Font.FontSize = 15;
+            titleCell.Style.Font.FontSize = 22;
             titleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            titleCell.Style.Fill.BackgroundColor = XLColor.FromArgb(30, 58, 138); // آبی تیره
-            titleCell.Style.Font.FontColor = XLColor.White;
-            ws.Row(1).Height = 35;
+            titleCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
-            // ردیف اطلاعات پیش‌فاکتور (شماره، تاریخ، کارشناس)
-            ws.Cell("A3").Value = "شماره پیش‌فاکتور:";
-            ws.Cell("A3").Style.Font.Bold = true;
-            ws.Cell("B3").Value = invoice.InvoiceNumber;
-            ws.Cell("B3").Style.Font.Bold = true;
-            ws.Cell("B3").Style.Font.FontColor = XLColor.FromHtml("#1E40AF");
+            // ج) بخش چپ: کادر ۴ سطری تاریخ، شماره، پیوست و صفحه (کادر دار)
+            string issueDt = string.IsNullOrWhiteSpace(invoice.IssueDateShamsi) ? JalaliDateHelper.GetCurrentShamsiDate() : invoice.IssueDateShamsi;
+            string invNum = invoice.InvoiceNumber ?? "";
+            string attach = string.IsNullOrWhiteSpace(invoice.Attachment) ? "ندارد" : invoice.Attachment;
+            string pageTxt = string.IsNullOrWhiteSpace(invoice.PageNumberText) ? "یک" : invoice.PageNumberText;
 
-            ws.Cell("D3").Value = "تاریخ صدور:";
-            ws.Cell("D3").Style.Font.Bold = true;
-            ws.Cell("E3").Value = invoice.IssueDateShamsi;
+            ws.Cell("E1").Value = "تاریخ :";
+            ws.Cell("F1").Value = issueDt;
+            ws.Cell("E2").Value = "شماره :";
+            ws.Cell("F2").Value = invNum;
+            ws.Cell("E3").Value = "پیوست :";
+            ws.Cell("F3").Value = attach;
+            ws.Cell("E4").Value = "صفحه :";
+            ws.Cell("F4").Value = pageTxt;
 
-            ws.Cell("A4").Value = "کارشناس صادرکننده:";
-            ws.Cell("A4").Style.Font.Bold = true;
-            ws.Cell("B4").Value = invoice.ExpertName + (string.IsNullOrEmpty(invoice.ExpertPhone) ? "" : $" ({invoice.ExpertPhone})");
+            var metaRange = ws.Range("E1:F4");
+            metaRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            metaRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            ws.Range("E1:E4").Style.Font.Bold = true;
+            ws.Range("E1:E4").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            ws.Range("F1:F4").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            ws.Cell("D4").Value = "مهلت اعتبار:";
-            ws.Cell("D4").Style.Font.Bold = true;
-            ws.Cell("E4").Value = invoice.ValidUntilShamsi;
+            // ==================== ۲. مشخصات مشتری و متن مقدمه ====================
+            string custPrefix = !string.IsNullOrWhiteSpace(invoice.CustomerLabelPrefix) ? invoice.CustomerLabelPrefix : (!string.IsNullOrWhiteSpace(settings.CustomerLabelPrefix) ? settings.CustomerLabelPrefix : "نام مشتری شرکت محترم ");
+            string custName = string.IsNullOrWhiteSpace(invoice.CompanyName) ? "مشتری محترم" : invoice.CompanyName;
 
-            // کادر اطلاعات فروشنده
-            ws.Range("A6:E6").Merge();
-            var sellerHeader = ws.Cell("A6");
-            sellerHeader.Value = "مشخصات فروشنده";
-            sellerHeader.Style.Font.Bold = true;
-            sellerHeader.Style.Fill.BackgroundColor = XLColor.FromArgb(241, 245, 249);
+            string formattedPrefix = custPrefix.TrimEnd() + " ";
+            ws.Range("A6:F6").Merge();
+            ws.Cell("A6").Value = $"{formattedPrefix}{custName.TrimStart()}";
+            ws.Cell("A6").Style.Font.Bold = true;
+            ws.Cell("A6").Style.Font.FontSize = 11;
+            ws.Cell("A6").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            ws.Cell("A7").Value = "نام فروشنده:";
-            ws.Cell("B7").Value = settings.SellerName;
-            ws.Cell("D7").Value = "شناسه ملی / اقتصادی:";
-            ws.Cell("E7").Value = $"{settings.SellerNationalCode} / {settings.SellerEconomicCode}";
+            ws.Range("A7:F7").Merge();
+            ws.Cell("A7").Value = $"موضوع : {invoice.Subject}";
+            ws.Cell("A7").Style.Font.Bold = true;
+            ws.Cell("A7").Style.Font.FontSize = 10.5;
+            ws.Cell("A7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            ws.Cell("A8").Value = "نشانی و تلفن:";
-            ws.Range("B8:E8").Merge();
-            ws.Cell("B8").Value = $"{settings.SellerAddress} - تلفن: {settings.SellerPhone}";
+            string greeting = !string.IsNullOrWhiteSpace(invoice.GreetingText) ? invoice.GreetingText : (!string.IsNullOrWhiteSpace(settings.GreetingText) ? settings.GreetingText : "احتراما\" قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:");
+            ws.Range("A8:F8").Merge();
+            ws.Cell("A8").Value = greeting;
+            ws.Cell("A8").Style.Font.FontSize = 10.5;
+            ws.Cell("A8").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            // کادر اطلاعات خریدار
-            ws.Range("A10:E10").Merge();
-            var buyerHeader = ws.Cell("A10");
-            buyerHeader.Value = "مشخصات خریدار";
-            buyerHeader.Style.Font.Bold = true;
-            buyerHeader.Style.Fill.BackgroundColor = XLColor.FromArgb(241, 245, 249);
-
-            ws.Cell("A11").Value = "نام شرکت / شخص:";
-            ws.Cell("B11").Value = invoice.CompanyName;
-            ws.Cell("D11").Value = "کد اقتصادی / ملی:";
-            ws.Cell("E11").Value = $"{invoice.CompanyEconomicCode} / {invoice.CompanyNationalCode}";
-
-            ws.Cell("A12").Value = "نشانی و تلفن خریدار:";
-            ws.Range("B12:E12").Merge();
-            ws.Cell("B12").Value = $"{invoice.CompanyAddress} - تلفن: {invoice.CompanyPhone}";
-
-            // جدول اقلام (فقط ستون‌های مشتری‌پسند: ردیف، شرح کالا، تعداد، قیمت واحد فروش، مبلغ کل)
-            int tableHeaderRow = 14;
+            // ==================== ۳. جدول اقلام کالا با شکست ۲ یا ۳ خطی شرح ====================
+            int tableHeaderRow = 9;
             ws.Row(tableHeaderRow).Height = 26;
 
             ws.Cell(tableHeaderRow, 1).Value = "ردیف";
-            ws.Cell(tableHeaderRow, 2).Value = "شرح کالا یا خدمات";
-            ws.Cell(tableHeaderRow, 3).Value = "تعداد / مقدار";
-            ws.Cell(tableHeaderRow, 4).Value = $"قیمت واحد ({settings.CurrencyUnit})";
-            ws.Cell(tableHeaderRow, 5).Value = $"مبلغ کل ({settings.CurrencyUnit})";
+            ws.Cell(tableHeaderRow, 2).Value = "شرح کالا";
+            ws.Cell(tableHeaderRow, 3).Value = "مقدار";
+            ws.Cell(tableHeaderRow, 4).Value = "واحد";
+            ws.Cell(tableHeaderRow, 5).Value = $"قیمت واحد ({currUnit})";
+            ws.Cell(tableHeaderRow, 6).Value = $"جمع کل ({currUnit})";
 
-            var headerRange = ws.Range(tableHeaderRow, 1, tableHeaderRow, 5);
+            var headerRange = ws.Range(tableHeaderRow, 1, tableHeaderRow, 6);
             headerRange.Style.Font.Bold = true;
-            headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(51, 65, 85); // Slate 700
-            headerRange.Style.Font.FontColor = XLColor.White;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(217, 226, 243); // آبی کم‌رنگ #D9E2F3
             headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
@@ -222,89 +284,257 @@ namespace TarazInvoice.Services
             for (int i = 0; i < invoice.Items.Count; i++)
             {
                 var item = invoice.Items[i];
-                ws.Row(rowIdx).Height = 22;
+                var row = ws.Row(rowIdx);
+                row.Height = 24;
 
                 ws.Cell(rowIdx, 1).Value = item.RowNumber;
                 ws.Cell(rowIdx, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-                ws.Cell(rowIdx, 2).Value = item.ItemName;
-                ws.Cell(rowIdx, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                var cellName = ws.Cell(rowIdx, 2);
+                cellName.Value = item.ItemName;
+                cellName.Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
+                cellName.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                cellName.Style.Alignment.WrapText = true; // شکست خطوط کالا در ۲ یا ۳ خط
 
                 ws.Cell(rowIdx, 3).Value = (double)item.Quantity;
                 ws.Cell(rowIdx, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-                ws.Cell(rowIdx, 4).Value = (double)item.FinalUnitPrice;
-                ws.Cell(rowIdx, 4).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(rowIdx, 4).Value = string.IsNullOrWhiteSpace(item.Unit) ? "عدد" : item.Unit;
                 ws.Cell(rowIdx, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-                ws.Cell(rowIdx, 5).Value = (double)item.TotalPrice;
+                ws.Cell(rowIdx, 5).Value = (double)item.FinalUnitPrice;
                 ws.Cell(rowIdx, 5).Style.NumberFormat.Format = "#,##0";
                 ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
+                ws.Cell(rowIdx, 6).Value = (double)item.TotalPrice;
+                ws.Cell(rowIdx, 6).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(rowIdx, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
                 // خطوط دور جدول
-                var rowRange = ws.Range(rowIdx, 1, rowIdx, 5);
+                var rowRange = ws.Range(rowIdx, 1, rowIdx, 6);
                 rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-                if (i % 2 == 1)
-                {
-                    rowRange.Style.Fill.BackgroundColor = XLColor.FromArgb(248, 250, 252);
-                }
+                rowRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
                 rowIdx++;
             }
 
-            // سطر جمع کل
-            ws.Row(rowIdx).Height = 26;
+            // نوار خاکستری باریک بالای جمع‌های مالی
+            ws.Row(rowIdx).Height = 8;
+            var grayBar = ws.Range(rowIdx, 1, rowIdx, 6);
+            grayBar.Style.Fill.BackgroundColor = XLColor.FromArgb(89, 89, 89);
+            rowIdx++;
+
+            // ==================== ۴. سطرهای جمع مالی (مطابق دقیق تصویر) ====================
+            // سطر ۱: جمع کل
+            ws.Row(rowIdx).Height = 24;
             ws.Range(rowIdx, 1, rowIdx, 4).Merge();
-            var totalLabel = ws.Cell(rowIdx, 1);
-            totalLabel.Value = "جمع کل نهایی قابل پرداخت:";
-            totalLabel.Style.Font.Bold = true;
-            totalLabel.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            ws.Cell(rowIdx, 5).Value = $"جمع کل ( {currUnit} )";
+            ws.Cell(rowIdx, 5).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            var totalValue = ws.Cell(rowIdx, 5);
-            totalValue.Value = (double)invoice.GrandTotal;
-            totalValue.Style.Font.Bold = true;
-            totalValue.Style.NumberFormat.Format = "#,##0";
-            totalValue.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            totalValue.Style.Fill.BackgroundColor = XLColor.FromArgb(254, 240, 138); // Yellow highlight
+            ws.Cell(rowIdx, 6).Value = (double)invoice.GrandTotal;
+            ws.Cell(rowIdx, 6).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 6).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(rowIdx, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            var totalRange = ws.Range(rowIdx, 1, rowIdx, 5);
-            totalRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
-            totalRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            var sumRange1 = ws.Range(rowIdx, 5, rowIdx, 6);
+            sumRange1.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            sumRange1.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            rowIdx++;
 
-            rowIdx += 2;
+            // سطر ۲: ارزش افزوده
+            ws.Row(rowIdx).Height = 24;
+            ws.Range(rowIdx, 1, rowIdx, 4).Merge();
+            ws.Cell(rowIdx, 5).Value = $"ارزش افزوده ( {currUnit} )";
+            ws.Cell(rowIdx, 5).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // مبلغ به حروف
-            ws.Range(rowIdx, 1, rowIdx, 5).Merge();
-            ws.Cell(rowIdx, 1).Value = "مبلغ به حروف: " + JalaliDateHelper.NumberToWords((long)invoice.GrandTotal) + " " + settings.CurrencyUnit;
-            ws.Cell(rowIdx, 1).Style.Font.Bold = true;
-            ws.Cell(rowIdx, 1).Style.Font.Italic = true;
+            ws.Cell(rowIdx, 6).Value = (double)invoice.VatAmount;
+            ws.Cell(rowIdx, 6).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 6).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(rowIdx, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            rowIdx += 2;
+            var sumRange2 = ws.Range(rowIdx, 5, rowIdx, 6);
+            sumRange2.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            sumRange2.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            if (invoice.HighlightVat)
+            {
+                sumRange2.Style.Fill.BackgroundColor = XLColor.FromArgb(255, 255, 0); // هایلایت زرد
+            }
+            rowIdx++;
 
-            // شرایط پرداخت و توضیحات
-            ws.Range(rowIdx, 1, rowIdx, 5).Merge();
-            ws.Cell(rowIdx, 1).Value = "شرایط و توضیحات:\n" + invoice.Notes;
-            ws.Cell(rowIdx, 1).Style.Alignment.WrapText = true;
-            ws.Row(rowIdx).Height = 45;
+            // سطر ۳: جمع کل با ارزش افزوده
+            ws.Row(rowIdx).Height = 24;
+            ws.Range(rowIdx, 1, rowIdx, 4).Merge();
+            ws.Cell(rowIdx, 5).Value = $"جمع کل با ارزش افزوده ({currUnit})";
+            ws.Cell(rowIdx, 5).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            rowIdx += 3;
+            ws.Cell(rowIdx, 6).Value = (double)invoice.GrandTotalWithVat;
+            ws.Cell(rowIdx, 6).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 6).Style.NumberFormat.Format = "#,##0";
+            ws.Cell(rowIdx, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // مهر و امضا
+            var sumRange3 = ws.Range(rowIdx, 5, rowIdx, 6);
+            sumRange3.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            sumRange3.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            rowIdx++;
+
+            rowIdx++; // فاصله خالی
+
+            // ==================== ۵. جدول توضیحات و شرایط فروش (مطابق دقیق تصویر) ====================
+            // هدر توضیحات در سمت راست جدول (بالای ستون لوزی و توضیحات)
+            ws.Row(rowIdx).Height = 22;
             ws.Range(rowIdx, 1, rowIdx, 2).Merge();
-            ws.Cell(rowIdx, 1).Value = "مهر و امضای خریدار:";
-            ws.Cell(rowIdx, 1).Style.Font.Bold = true;
+            var termsHeader = ws.Cell(rowIdx, 1);
+            termsHeader.Value = "توضیحات :";
+            termsHeader.Style.Font.Bold = true;
+            termsHeader.Style.Fill.BackgroundColor = XLColor.FromArgb(217, 226, 243);
+            var termsHeaderRange = ws.Range(rowIdx, 1, rowIdx, 2);
+            termsHeaderRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            termsHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            termsHeader.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            rowIdx++;
 
-            ws.Range(rowIdx, 4, rowIdx, 5).Merge();
-            ws.Cell(rowIdx, 4).Value = "مهر و امضای فروشنده:";
-            ws.Cell(rowIdx, 4).Style.Font.Bold = true;
+            void AddExcelTermRow(string text, bool isHighlighted)
+            {
+                ws.Row(rowIdx).Height = 22;
+                var bulletCell = ws.Cell(rowIdx, 1);
+                bulletCell.Value = "◆"; // علامت لوزی دقیق
+                bulletCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                bulletCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                bulletCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
 
-            // تنظیم عرض ستون‌ها
-            ws.Column(1).Width = 8;
-            ws.Column(2).Width = 38;
-            ws.Column(3).Width = 14;
-            ws.Column(4).Width = 22;
-            ws.Column(5).Width = 24;
+                var textRange = ws.Range(rowIdx, 2, rowIdx, 6);
+                textRange.Merge();
+                var cell = ws.Cell(rowIdx, 2);
+                cell.Value = text;
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                textRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+                var fullRow = ws.Range(rowIdx, 1, rowIdx, 6);
+                fullRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                fullRow.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                if (isHighlighted)
+                {
+                    fullRow.Style.Fill.BackgroundColor = XLColor.FromArgb(254, 240, 138); // هایلایت زرد استاندارد
+                    fullRow.Style.Font.Bold = true;
+                }
+                rowIdx++;
+            }
+
+            // ۱. اطلاعات حساب بانکی (پشتیبانی از چندین حساب، شماره شبا و شماره کارت)
+            var bankAccounts = (invoice.BankAccounts != null && invoice.BankAccounts.Count > 0)
+                ? invoice.BankAccounts
+                : settings.BankAccounts;
+
+            if (bankAccounts != null && bankAccounts.Count > 0)
+            {
+                foreach (var acc in bankAccounts)
+                {
+                    string info = acc.ToFormattedTerm();
+                    if (!string.IsNullOrWhiteSpace(info))
+                    {
+                        AddExcelTermRow(info, false);
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(settings.BankAccountNumber) || !string.IsNullOrWhiteSpace(settings.BankCardNumber))
+            {
+                string bankInfo = $"شماره حساب {settings.BankAccountNumber} شماره کارت {settings.BankCardNumber}";
+                AddExcelTermRow(bankInfo, false);
+            }
+
+            // ۲. اعتبار پیش‌فاکتور (با هایلایت زرد)
+            string validInfo = !string.IsNullOrWhiteSpace(invoice.ValidityText) ? invoice.ValidityText : (!string.IsNullOrWhiteSpace(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتورتا پایان روز می باشد.");
+            AddExcelTermRow(validInfo, invoice.HighlightValidity);
+
+            // ۳. نوع تسویه
+            string pTerms = !string.IsNullOrWhiteSpace(invoice.PaymentTerms) ? invoice.PaymentTerms : settings.PaymentTerms;
+            if (!string.IsNullOrWhiteSpace(pTerms))
+            {
+                AddExcelTermRow($"نوع تسویه: {pTerms}", invoice.HighlightPaymentTerms);
+            }
+
+            // ۴. توضیحات سفارشی فاکتور (با هایلایت زرد)
+            string notes = !string.IsNullOrWhiteSpace(invoice.Notes) ? invoice.Notes : settings.DefaultTerms;
+            if (!string.IsNullOrWhiteSpace(notes))
+            {
+                AddExcelTermRow($"توضیحات: {notes}", invoice.HighlightNotes);
+            }
+
+            // ۵. زمان تحویل (با هایلایت زرد)
+            string dDays = !string.IsNullOrWhiteSpace(invoice.DeliveryDays) ? invoice.DeliveryDays : settings.DeliveryDays;
+            if (!string.IsNullOrWhiteSpace(dDays))
+            {
+                AddExcelTermRow($"زمان تحویل: {dDays}", invoice.HighlightDeliveryDays);
+            }
+
+            // ۶. محل تحویل کالا
+            string dLoc = !string.IsNullOrWhiteSpace(invoice.DeliveryLocation) ? invoice.DeliveryLocation : settings.DeliveryLocation;
+            if (!string.IsNullOrWhiteSpace(dLoc))
+            {
+                AddExcelTermRow($"محل تحویل کالا: {dLoc}", invoice.HighlightDeliveryLocation);
+            }
+
+            rowIdx += 2;
+
+            // ==================== ۶. امضا، مهر و مسئول (مطابق تصویر) ====================
+            // سمت چپ (ستون‌های ۵ و ۶ در راست‌چین): کارشناسی خرید / فروش
+            string expRole = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:");
+            ws.Range(rowIdx, 5, rowIdx, 6).Merge();
+            ws.Cell(rowIdx, 5).Value = $"{expRole} {invoice.ExpertName}";
+            ws.Cell(rowIdx, 5).Style.Font.FontSize = 10;
+            ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            ws.Cell(rowIdx, 5).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+            // سمت راست/وسط (ستون‌های ۲ و ۳): نام مسئول امضا و مهر
+            string signatory = !string.IsNullOrWhiteSpace(invoice.SignatoryName) ? invoice.SignatoryName : (!string.IsNullOrWhiteSpace(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش");
+            ws.Range(rowIdx, 2, rowIdx, 3).Merge();
+            ws.Cell(rowIdx, 2).Value = signatory;
+            ws.Cell(rowIdx, 2).Style.Font.Bold = true;
+            ws.Cell(rowIdx, 2).Style.Font.FontSize = 11;
+            ws.Cell(rowIdx, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Cell(rowIdx, 2).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+            // تلاش برای درج تصویر مهر در صورت وجود
+            if (!string.IsNullOrWhiteSpace(settings.CompanyStampPath) && File.Exists(settings.CompanyStampPath))
+            {
+                try
+                {
+                    var stampPic = ws.AddPicture(settings.CompanyStampPath);
+                    stampPic.MoveTo(ws.Cell(rowIdx - 2, 3), 5, 5);
+                    stampPic.WithSize(90, 65);
+                }
+                catch { }
+            }
+
+            rowIdx += 2;
+
+            // ==================== ۷. خط‌چین برش و آدرس دفتر در انتهای برگه ====================
+            var dashedRow = ws.Range(rowIdx, 1, rowIdx, 6);
+            dashedRow.Style.Border.BottomBorder = XLBorderStyleValues.Dashed;
+            dashedRow.Style.Border.BottomBorderColor = XLColor.FromArgb(100, 116, 139);
+            rowIdx++;
+
+            ws.Row(rowIdx).Height = 22;
+            ws.Range(rowIdx, 1, rowIdx, 6).Merge();
+            var footerCell = ws.Cell(rowIdx, 1);
+            footerCell.Value = $"آدرس دفتر: {settings.SellerAddress}    تلفن: {settings.SellerPhone}";
+            footerCell.Style.Font.FontSize = 10;
+            footerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            footerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+            // تنظیم عرض ستون‌ها متناسب با نمونه
+            ws.Column(1).Width = 7;
+            ws.Column(2).Width = 48;
+            ws.Column(3).Width = 9;
+            ws.Column(4).Width = 9;
+            ws.Column(5).Width = 18;
+            ws.Column(6).Width = 20;
 
             workbook.SaveAs(outputPath);
         }
@@ -341,8 +571,8 @@ namespace TarazInvoice.Services
             ws.Cell(headerRow, 1).Value = "ردیف";
             ws.Cell(headerRow, 2).Value = "شرح کالا یا خدمات";
             ws.Cell(headerRow, 3).Value = "تعداد";
-            ws.Cell(headerRow, 4).Value = "قیمت واحد فروش (تومان)";
-            ws.Cell(headerRow, 5).Value = "مبلغ کل (تومان)";
+            ws.Cell(headerRow, 4).Value = "قیمت واحد فروش (ریال)";
+            ws.Cell(headerRow, 5).Value = "مبلغ کل (ریال)";
 
             var hRange = ws.Range(headerRow, 1, headerRow, 5);
             hRange.Style.Font.Bold = true;
@@ -385,6 +615,192 @@ namespace TarazInvoice.Services
                 string val = cell.GetString();
                 cell.Value = val.Replace(placeholder, replacement ?? string.Empty);
             }
+        }
+
+        public void ExportReport(List<ProformaInvoice> invoices, string outputPath, string filterSummary)
+        {
+            var settings = _storage.GetSettings();
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("گزارش پیش‌فاکتورها");
+            ws.RightToLeft = true;
+            ws.Style.Font.FontName = "Tahoma";
+            ws.Style.Font.FontSize = 10;
+
+            // سربرگ گزارش
+            ws.Range("A1:G1").Merge();
+            var title = ws.Cell("A1");
+            title.Value = $"گزارش تحلیلی پیش‌فاکتورهای فروش - {settings.SellerName}";
+            title.Style.Font.Bold = true;
+            title.Style.Font.FontSize = 14;
+            title.Style.Fill.BackgroundColor = XLColor.FromArgb(30, 41, 59);
+            title.Style.Font.FontColor = XLColor.White;
+            title.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Row(1).Height = 32;
+
+            ws.Range("A2:G2").Merge();
+            var sub = ws.Cell("A2");
+            sub.Value = $"تاریخ گزارش: {JalaliDateHelper.GetCurrentShamsiDate()} | فیلتر اعمال‌شده: {filterSummary}";
+            sub.Style.Font.Italic = true;
+            sub.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            sub.Style.Fill.BackgroundColor = XLColor.FromArgb(241, 245, 249);
+
+            // جدول
+            int headerRow = 4;
+            ws.Row(headerRow).Height = 24;
+            ws.Cell(headerRow, 1).Value = "ردیف";
+            ws.Cell(headerRow, 2).Value = "شماره پیش‌فاکتور";
+            ws.Cell(headerRow, 3).Value = "تاریخ صدور";
+            ws.Cell(headerRow, 4).Value = "نام شرکت خریدار";
+            ws.Cell(headerRow, 5).Value = "کارشناس صادرکننده";
+            ws.Cell(headerRow, 6).Value = $"مبلغ کل ({settings.CurrencyUnit})";
+            ws.Cell(headerRow, 7).Value = "وضعیت";
+
+            var hRange = ws.Range(headerRow, 1, headerRow, 7);
+            hRange.Style.Font.Bold = true;
+            hRange.Style.Fill.BackgroundColor = XLColor.FromArgb(51, 65, 85);
+            hRange.Style.Font.FontColor = XLColor.White;
+            hRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            int r = headerRow + 1;
+            int idx = 1;
+            foreach (var inv in invoices)
+            {
+                ws.Cell(r, 1).Value = idx;
+                ws.Cell(r, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 2).Value = inv.InvoiceNumber;
+                ws.Cell(r, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 3).Value = inv.IssueDateShamsi;
+                ws.Cell(r, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 4).Value = inv.CompanyName;
+                ws.Cell(r, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+                ws.Cell(r, 5).Value = inv.ExpertName;
+                ws.Cell(r, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 6).Value = (double)inv.GrandTotal;
+                ws.Cell(r, 6).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(r, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 7).Value = inv.Status.ToPersianString();
+                ws.Cell(r, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                var rowRange = ws.Range(r, 1, r, 7);
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                if (idx % 2 == 0)
+                {
+                    rowRange.Style.Fill.BackgroundColor = XLColor.FromArgb(248, 250, 252);
+                }
+
+                r++;
+                idx++;
+            }
+
+            // سطر مجموع
+            ws.Row(r).Height = 24;
+            ws.Range(r, 1, r, 5).Merge();
+            var sumLabel = ws.Cell(r, 1);
+            sumLabel.Value = $"مجموع کل ({invoices.Count} پیش‌فاکتور):";
+            sumLabel.Style.Font.Bold = true;
+            sumLabel.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+            var sumVal = ws.Cell(r, 6);
+            sumVal.Value = (double)invoices.Sum(i => i.GrandTotal);
+            sumVal.Style.Font.Bold = true;
+            sumVal.Style.NumberFormat.Format = "#,##0";
+            sumVal.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            sumVal.Style.Fill.BackgroundColor = XLColor.FromArgb(254, 240, 138);
+
+            var sumRange = ws.Range(r, 1, r, 7);
+            sumRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+            sumRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            ws.Column(1).Width = 8;
+            ws.Column(2).Width = 18;
+            ws.Column(3).Width = 14;
+            ws.Column(4).Width = 32;
+            ws.Column(5).Width = 22;
+            ws.Column(6).Width = 22;
+            ws.Column(7).Width = 18;
+
+            wb.SaveAs(outputPath);
+        }
+
+        public void ExportStorage(List<StorageItem> items, string outputPath)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("اقلام انبار");
+            ws.RightToLeft = true;
+            ws.Style.Font.FontName = "Tahoma";
+            ws.Style.Font.FontSize = 10;
+
+            ws.Range("A1:F1").Merge();
+            var title = ws.Cell("A1");
+            title.Value = "فهرست اقلام و موجودی انبار کالاها";
+            title.Style.Font.Bold = true;
+            title.Style.Font.FontSize = 14;
+            title.Style.Fill.BackgroundColor = XLColor.FromArgb(30, 41, 59);
+            title.Style.Font.FontColor = XLColor.White;
+            title.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Row(1).Height = 32;
+
+            int headerRow = 3;
+            ws.Cell(headerRow, 1).Value = "ردیف";
+            ws.Cell(headerRow, 2).Value = "کد کالا";
+            ws.Cell(headerRow, 3).Value = "نام کالا / شرح";
+            ws.Cell(headerRow, 4).Value = "واحد";
+            ws.Cell(headerRow, 5).Value = "قیمت خام واحد";
+            ws.Cell(headerRow, 6).Value = "دسته‌بندی";
+
+            var hRange = ws.Range(headerRow, 1, headerRow, 6);
+            hRange.Style.Font.Bold = true;
+            hRange.Style.Fill.BackgroundColor = XLColor.FromArgb(51, 65, 85);
+            hRange.Style.Font.FontColor = XLColor.White;
+            hRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            int r = headerRow + 1;
+            int idx = 1;
+            foreach (var item in items)
+            {
+                ws.Cell(r, 1).Value = idx;
+                ws.Cell(r, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 2).Value = item.Code;
+                ws.Cell(r, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 3).Value = item.Name;
+                ws.Cell(r, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+                ws.Cell(r, 4).Value = item.Unit;
+                ws.Cell(r, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 5).Value = (double)item.DefaultPrice;
+                ws.Cell(r, 5).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(r, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(r, 6).Value = item.Category;
+                ws.Cell(r, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                var rowRange = ws.Range(r, 1, r, 6);
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                r++;
+                idx++;
+            }
+
+            ws.Column(1).Width = 8;
+            ws.Column(2).Width = 14;
+            ws.Column(3).Width = 40;
+            ws.Column(4).Width = 10;
+            ws.Column(5).Width = 18;
+            ws.Column(6).Width = 14;
+
+            wb.SaveAs(outputPath);
         }
     }
 }

@@ -37,10 +37,44 @@ namespace TarazInvoice.Models
         // خلاصه‌های مالی محاسبه‌شده
         public decimal TotalRawAmount => Items?.Sum(i => i.Quantity * i.RawPrice) ?? 0;
         public decimal TotalDiscount => Items?.Sum(i => i.Quantity * i.DiscountAmount) ?? 0;
+        public decimal TotalProfit => Items?.Sum(i => i.TotalProfit) ?? 0;
         public decimal GrandTotal => Items?.Sum(i => i.TotalPrice) ?? 0;
+        public decimal ProfitMarginPercent => (GrandTotal > 0 && TotalProfit > 0) ? Math.Round((TotalProfit / GrandTotal) * 100m, 1) : 0;
 
-        // توضیحات و شرایط پرداخت
-        public string Notes { get; set; } = "۱. پیش‌فاکتور فوق به مدت ۷ روز کاری دارای اعتبار می‌باشد.\n۲. قیمت‌ها نهایی بوده و نحوه تسویه به صورت توافق طرفین خواهد بود.";
+        // ارزش افزوده و جمع نهایی
+        public decimal VatPercent { get; set; } = 10m;
+        public decimal VatAmount => Math.Round(GrandTotal * (VatPercent / 100m), 0);
+        public decimal GrandTotalWithVat => GrandTotal + VatAmount;
+
+        // سربرگ فاکتور
+        public string Subject { get; set; } = string.Empty;
+        public string Attachment { get; set; } = "ندارد";
+        public string PageNumberText { get; set; } = "یک";
+        public string CustomerLabelPrefix { get; set; } = "نام مشتری شرکت محترم ";
+        public string GreetingText { get; set; } = "احتراما\" قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:";
+        public string CurrencyUnit { get; set; } = "ریال";
+
+        // توضیحات و شرایط پرداخت اختصاصی هر پیش‌فاکتور (مطابق نمونه مصوب)
+        public string ValidityText { get; set; } = "اعتبار این پیش فاکتورتا پایان روز می باشد.";
+        public string PaymentTerms { get; set; } = "نقد";
+        public string Notes { get; set; } = "فرایند تحویل بار پس از وصول پیش پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.در صورت تغییر قیمت پیش فاکتور اصلاحی تقدیم میگردد.";
+        public string DeliveryDays { get; set; } = "موجود";
+        public string DeliveryLocation { get; set; } = "مشهد";
+
+        // مسئول امضا و کارشناس
+        public string SignatoryName { get; set; } = "محمد احمدی پور هدش";
+        public string ExpertRoleLabel { get; set; } = "کارشناسی خرید:";
+
+        // حساب‌های بانکی اختصاصی این پیش‌فاکتور (در صورت عدم تعیین، از تنظیمات سامانه خوانده می‌شود)
+        public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>();
+
+        // قابلیت هایلایت (برجسته‌سازی زرد) بخش‌های مهم پیش‌فاکتور (مطابق نمونه کاربر)
+        public bool HighlightValidity { get; set; } = true;
+        public bool HighlightPaymentTerms { get; set; } = false;
+        public bool HighlightNotes { get; set; } = true;
+        public bool HighlightDeliveryDays { get; set; } = true;
+        public bool HighlightDeliveryLocation { get; set; } = false;
+        public bool HighlightVat { get; set; } = false;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
@@ -65,7 +99,27 @@ namespace TarazInvoice.Models
                 ExpertPhone = this.ExpertPhone,
                 Status = InvoiceStatus.Draft,
                 Items = this.Items.Select(item => item.Clone()).ToList(),
+                Subject = this.Subject,
+                Attachment = this.Attachment,
+                PageNumberText = this.PageNumberText,
+                CustomerLabelPrefix = this.CustomerLabelPrefix,
+                GreetingText = this.GreetingText,
+                CurrencyUnit = this.CurrencyUnit,
+                VatPercent = this.VatPercent,
+                ValidityText = this.ValidityText,
+                PaymentTerms = this.PaymentTerms,
                 Notes = this.Notes,
+                DeliveryDays = this.DeliveryDays,
+                DeliveryLocation = this.DeliveryLocation,
+                SignatoryName = this.SignatoryName,
+                ExpertRoleLabel = this.ExpertRoleLabel,
+                BankAccounts = this.BankAccounts?.Select(b => new BankAccountInfo { BankName = b.BankName, AccountNumber = b.AccountNumber, ShebaNumber = b.ShebaNumber, CardNumber = b.CardNumber, OwnerName = b.OwnerName }).ToList() ?? new List<BankAccountInfo>(),
+                HighlightValidity = this.HighlightValidity,
+                HighlightPaymentTerms = this.HighlightPaymentTerms,
+                HighlightNotes = this.HighlightNotes,
+                HighlightDeliveryDays = this.HighlightDeliveryDays,
+                HighlightDeliveryLocation = this.HighlightDeliveryLocation,
+                HighlightVat = this.HighlightVat,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
             };
