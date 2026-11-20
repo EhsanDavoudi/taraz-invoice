@@ -52,6 +52,13 @@ namespace TarazInvoice
         {
             InitializeComponent();
 
+            try
+            {
+                var iconUri = new Uri("pack://application:,,,/TarazInvoice;component/Resources/logo.png", UriKind.Absolute);
+                Icon = System.Windows.Media.Imaging.BitmapFrame.Create(iconUri);
+            }
+            catch { }
+
             _storage = new StorageService();
             _storage.DataChanged += Storage_DataChanged;
             _excelService = new ExcelExportService(_storage);
@@ -853,16 +860,52 @@ namespace TarazInvoice
         {
             if (sender is FrameworkElement btn && btn.DataContext is ProformaInvoice invoice)
             {
-                try
+                ExportInvoiceToPdfWithDialog(invoice);
+            }
+        }
+
+        private bool ExportInvoiceToPdfWithDialog(ProformaInvoice invoice, AppSettings? overrideSettings = null)
+        {
+            try
+            {
+                var sfd = new SaveFileDialog
                 {
-                    _printService.SaveInvoiceAsPdf(invoice);
-                    SetStatus($"پیش‌فاکتور {invoice.InvoiceNumber} به صورت فایل PDF ذخیره شد.");
-                }
-                catch (Exception ex)
+                    Title = "ذخیره پیش‌فاکتور به صورت فایل PDF",
+                    Filter = "فایل‌های PDF (*.pdf)|*.pdf",
+                    FileName = PrintPdfService.GetSafeInvoiceFileName(invoice, "pdf"),
+                    DefaultExt = ".pdf",
+                    AddExtension = true
+                };
+
+                if (sfd.ShowDialog() == true)
                 {
-                    MessageBox.Show($"خطا در ذخیره PDF:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
+                    string targetPath = sfd.FileName;
+                    _printService.SaveInvoiceAsPdfFile(invoice, targetPath, overrideSettings);
+
+                    SetStatus($"فایل PDF پیش‌فاکتور {invoice.InvoiceNumber} با موفقیت در «{System.IO.Path.GetFileName(targetPath)}» ذخیره شد.");
+
+                    // باز کردن خودکار فایل پی‌دی‌اف پس از ذخیره جهت بررسی کاربر
+                    try
+                    {
+                        var psi = new System.Diagnostics.ProcessStartInfo(targetPath)
+                        {
+                            UseShellExecute = true
+                        };
+                        System.Diagnostics.Process.Start(psi);
+                    }
+                    catch (Exception exOpen)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Cannot auto-open PDF: " + exOpen.Message);
+                    }
+
+                    return true;
                 }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"خطا در ذخیره فایل PDF:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            return false;
         }
 
         private void ExportInvoiceToExcel(ProformaInvoice invoice)
@@ -1565,10 +1608,21 @@ namespace TarazInvoice
 
             if (_isNewInvoice)
             {
-                if (_currentEditingInvoice.InvoiceNumber == expert.GetPreviewNextInvoiceNumber())
+                // برای جلوگیری از تداخل شماره فاکتور هنگام استفاده همزمان چند کاربر روی شبکه
+                _storage.CheckAndReloadIfDiskChanged();
+                var freshExpert = _storage.GetExperts().FirstOrDefault(e => e.Id == expert.Id) ?? expert;
+
+                if (_storage.GetInvoices().Any(inv => inv.InvoiceNumber == _currentEditingInvoice.InvoiceNumber && inv.Id != _currentEditingInvoice.Id))
                 {
-                    expert.ConsumeNextInvoiceNumber();
-                    _storage.AddOrUpdateExpert(expert);
+                    string newNum = freshExpert.GetPreviewNextInvoiceNumber();
+                    _currentEditingInvoice.InvoiceNumber = newNum;
+                    if (TxtEditorInvoiceNumber != null) TxtEditorInvoiceNumber.Text = newNum;
+                }
+
+                if (_currentEditingInvoice.InvoiceNumber == freshExpert.GetPreviewNextInvoiceNumber())
+                {
+                    freshExpert.ConsumeNextInvoiceNumber();
+                    _storage.AddOrUpdateExpert(freshExpert);
                 }
             }
 
@@ -1951,7 +2005,8 @@ namespace TarazInvoice
         {
             if (SaveCurrentInvoiceFromEditor())
             {
-                SwitchToView("Invoices");
+                // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند و به صفحه فاکتورها پرتاب نمی‌شود
+                SetStatus($"پیش‌فاکتور شماره {_currentEditingInvoice!.InvoiceNumber} با موفقیت ذخیره شد.");
             }
         }
 
@@ -1960,7 +2015,7 @@ namespace TarazInvoice
             if (SaveCurrentInvoiceFromEditor())
             {
                 ExportInvoiceToExcel(_currentEditingInvoice!);
-                SwitchToView("Invoices");
+                // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند
             }
         }
 
@@ -1968,19 +2023,11 @@ namespace TarazInvoice
         {
             if (SaveCurrentInvoiceFromEditor())
             {
-                try
+                if (_currentEditingInvoice != null)
                 {
-                    if (_currentEditingInvoice != null)
-                    {
-                        _printService.SaveInvoiceAsPdf(_currentEditingInvoice);
-                        SetStatus($"پیش‌فاکتور {_currentEditingInvoice.InvoiceNumber} به صورت فایل PDF ذخیره شد.");
-                    }
+                    ExportInvoiceToPdfWithDialog(_currentEditingInvoice);
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"خطا در ذخیره PDF:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                SwitchToView("Invoices");
+                // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند
             }
         }
 
@@ -1989,7 +2036,7 @@ namespace TarazInvoice
             if (SaveCurrentInvoiceFromEditor())
             {
                 _printService.PrintOrExportToPdf(_currentEditingInvoice!);
-                SwitchToView("Invoices");
+                // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند
             }
         }
 
@@ -2017,7 +2064,7 @@ namespace TarazInvoice
                         MessageBox.Show($"خطا در چاپ پیش‌فاکتور:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
-                SwitchToView("Invoices");
+                // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند
             }
         }
 
@@ -2769,75 +2816,87 @@ namespace TarazInvoice
 
         #region تب تنظیمات پیش‌فاکتور و برنامه
 
+        private bool _isLoadingSettings = false;
+
         private void LoadSettingsTab()
         {
-            var settings = _storage.GetSettings();
-            if (TxtSellerName == null) return;
-
-            TxtSellerName.Text = settings.SellerName;
-            if (TxtSellerRegistrationNo != null) TxtSellerRegistrationNo.Text = settings.SellerRegistrationNo;
-            TxtSellerNatCode.Text = settings.SellerNationalCode;
-            TxtSellerEcoCode.Text = settings.SellerEconomicCode;
-            TxtSellerPhone.Text = settings.SellerPhone;
-            TxtSellerAddress.Text = settings.SellerAddress;
-
-            // بارگذاری تصاویر لوگو، مهر و فونت‌ها
-            if (TxtCompanyLogoPath != null)
+            _isLoadingSettings = true;
+            try
             {
-                TxtCompanyLogoPath.Text = settings.CompanyLogoPath;
-                LoadImagePreview(settings.CompanyLogoPath, ImgLogoPreview);
-            }
-            if (TxtCompanyStampPath != null)
-            {
-                TxtCompanyStampPath.Text = settings.CompanyStampPath;
-                LoadImagePreview(settings.CompanyStampPath, ImgStampPreview);
-            }
+                var settings = _storage.GetSettings();
+                if (TxtSellerName == null) return;
 
-            if (CmbFontCompanyName != null)
-            {
-                string font = !string.IsNullOrEmpty(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : "Vazirmatn";
-                if (!CmbFontCompanyName.Items.Contains(font))
+                TxtSellerName.Text = settings.SellerName;
+                if (TxtSellerRegistrationNo != null) TxtSellerRegistrationNo.Text = settings.SellerRegistrationNo;
+                TxtSellerNatCode.Text = settings.SellerNationalCode;
+                TxtSellerEcoCode.Text = settings.SellerEconomicCode;
+                TxtSellerPhone.Text = settings.SellerPhone;
+                TxtSellerAddress.Text = settings.SellerAddress;
+
+                // بارگذاری تصاویر لوگو، مهر و فونت‌ها
+                if (TxtCompanyLogoPath != null)
                 {
-                    CmbFontCompanyName.Items.Add(font);
+                    TxtCompanyLogoPath.Text = settings.CompanyLogoPath;
+                    LoadImagePreview(settings.CompanyLogoPath, ImgLogoPreview);
                 }
-                CmbFontCompanyName.SelectedItem = font;
-                CmbFontCompanyName.Text = font;
-            }
-            if (TxtFontSizeCompanyName != null)
-            {
-                TxtFontSizeCompanyName.Text = settings.CompanyNameFontSize > 0 ? settings.CompanyNameFontSize.ToString("0") : "18";
-            }
-
-            if (CmbFontTable != null)
-            {
-                string font = !string.IsNullOrEmpty(settings.TableFontFamily) ? settings.TableFontFamily : "Vazirmatn";
-                if (!CmbFontTable.Items.Contains(font))
+                if (TxtCompanyStampPath != null)
                 {
-                    CmbFontTable.Items.Add(font);
+                    TxtCompanyStampPath.Text = settings.CompanyStampPath;
+                    LoadImagePreview(settings.CompanyStampPath, ImgStampPreview);
                 }
-                CmbFontTable.SelectedItem = font;
-                CmbFontTable.Text = font;
+
+                if (CmbFontCompanyName != null)
+                {
+                    string font = !string.IsNullOrEmpty(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : "Vazirmatn";
+                    if (!CmbFontCompanyName.Items.Contains(font))
+                    {
+                        CmbFontCompanyName.Items.Add(font);
+                    }
+                    CmbFontCompanyName.SelectedItem = font;
+                    CmbFontCompanyName.Text = font;
+                }
+                if (TxtFontSizeCompanyName != null)
+                {
+                    TxtFontSizeCompanyName.Text = settings.CompanyNameFontSize > 0 ? settings.CompanyNameFontSize.ToString("0") : "18";
+                }
+
+                if (CmbFontTable != null)
+                {
+                    string font = !string.IsNullOrEmpty(settings.TableFontFamily) ? settings.TableFontFamily : "Vazirmatn";
+                    if (!CmbFontTable.Items.Contains(font))
+                    {
+                        CmbFontTable.Items.Add(font);
+                    }
+                    CmbFontTable.SelectedItem = font;
+                    CmbFontTable.Text = font;
+                }
+                if (TxtFontSizeTable != null)
+                {
+                    TxtFontSizeTable.Text = settings.TableFontSize > 0 ? settings.TableFontSize.ToString("0") : "11";
+                }
+
+                if (TxtPaymentTerms != null) TxtPaymentTerms.Text = !string.IsNullOrEmpty(settings.PaymentTerms) ? settings.PaymentTerms : "نقد";
+                if (TxtDeliveryDays != null) TxtDeliveryDays.Text = !string.IsNullOrEmpty(settings.DeliveryDays) ? settings.DeliveryDays : "موجود";
+                if (TxtDeliveryLocation != null) TxtDeliveryLocation.Text = !string.IsNullOrEmpty(settings.DeliveryLocation) ? settings.DeliveryLocation : "مشهد";
+                if (TxtVatPercent != null) TxtVatPercent.Text = settings.VatPercent.ToString("0");
+
+                if (TxtSignatoryName != null) TxtSignatoryName.Text = !string.IsNullOrEmpty(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش";
+                if (TxtExpertRoleLabel != null) TxtExpertRoleLabel.Text = !string.IsNullOrEmpty(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:";
+                if (TxtDefaultValidityText != null) TxtDefaultValidityText.Text = !string.IsNullOrEmpty(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.";
+                if (CmbSettingsCurrencyUnit != null) CmbSettingsCurrencyUnit.SelectedIndex = 0;
+
+                if (DgrBankAccounts != null)
+                {
+                    _settingsBankAccounts = new ObservableCollection<BankAccountInfo>(settings.BankAccounts ?? new List<BankAccountInfo>());
+                    DgrBankAccounts.ItemsSource = _settingsBankAccounts;
+                }
             }
-            if (TxtFontSizeTable != null)
+            finally
             {
-                TxtFontSizeTable.Text = settings.TableFontSize > 0 ? settings.TableFontSize.ToString("0") : "11";
+                _isLoadingSettings = false;
             }
 
-            if (TxtPaymentTerms != null) TxtPaymentTerms.Text = !string.IsNullOrEmpty(settings.PaymentTerms) ? settings.PaymentTerms : "نقد";
-            if (TxtDeliveryDays != null) TxtDeliveryDays.Text = !string.IsNullOrEmpty(settings.DeliveryDays) ? settings.DeliveryDays : "موجود";
-            if (TxtDeliveryLocation != null) TxtDeliveryLocation.Text = !string.IsNullOrEmpty(settings.DeliveryLocation) ? settings.DeliveryLocation : "مشهد";
-            if (TxtVatPercent != null) TxtVatPercent.Text = settings.VatPercent.ToString("0");
-
-            if (TxtSignatoryName != null) TxtSignatoryName.Text = !string.IsNullOrEmpty(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش";
-            if (TxtExpertRoleLabel != null) TxtExpertRoleLabel.Text = !string.IsNullOrEmpty(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:";
-            if (TxtDefaultValidityText != null) TxtDefaultValidityText.Text = !string.IsNullOrEmpty(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتورتا پایان روز می باشد.";
-            if (CmbSettingsCurrencyUnit != null) CmbSettingsCurrencyUnit.SelectedIndex = 0;
-
-            if (DgrBankAccounts != null)
-            {
-                _settingsBankAccounts = new ObservableCollection<BankAccountInfo>(settings.BankAccounts ?? new List<BankAccountInfo>());
-                DgrBankAccounts.ItemsSource = _settingsBankAccounts;
-            }
+            UpdateSettingsPdfPreview();
         }
 
         private ObservableCollection<BankAccountInfo> _settingsBankAccounts = new ObservableCollection<BankAccountInfo>();
@@ -3069,36 +3128,179 @@ namespace TarazInvoice
             }
 
             _storage.Save();
+            UpdateSettingsPdfPreview();
             SetStatus("تنظیمات سربرگ، تصویر، مهر و فونت‌ها با موفقیت ذخیره شد.");
             MessageBox.Show("تنظیمات سربرگ، تصویر شرکت، مهر و فونت‌ها با موفقیت ذخیره گردید.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private void BtnTestPrintSample_Click(object sender, RoutedEventArgs e)
+        private void OnSettingsControlChanged(object sender, TextChangedEventArgs e)
         {
-            var invoices = _storage.GetInvoices();
-            var sampleInv = invoices.FirstOrDefault() ?? new ProformaInvoice
-            {
-                InvoiceNumber = "ANA 405-0000545",
-                IssueDateShamsi = "1405/08/26",
-                ValidUntilShamsi = "1405/09/03",
-                CompanyName = "شرکت محترم دانه طلایی داریوش",
-                CompanyPhone = "05137132084",
-                CompanyAddress = "مشهد - خیابان سنایی",
-                ExpertName = "محمد احمدی پور هدش",
-                ExpertPhone = "09151234567",
-                Status = InvoiceStatus.Approved,
-                Notes = "فرایند تحویل بار پس از وصول پیش‌پرداخت انجام خواهد شد.",
-                Items = new List<InvoiceItem>
-                {
-                    new InvoiceItem { RowNumber = 1, ItemName = "کلمپ فلکسیبل جریان و هارمونیک مدل AFLEX 3003 برند PROVA", Unit = "عدد", Quantity = 1, RawPrice = 1037760000, DiscountPercent = 0 },
-                    new InvoiceItem { RowNumber = 2, ItemName = "هیتر هویه دیجیتالی دو کاره گرداک مدل GORDAK 952 با یکسال گارانتی", Unit = "عدد", Quantity = 1, RawPrice = 298350000, DiscountPercent = 0 }
-                }
-            };
+            if (_isLoadingSettings) return;
+            UpdateSettingsPdfPreview();
+        }
+
+        private void OnSettingsSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isLoadingSettings) return;
+            UpdateSettingsPdfPreview();
+        }
+
+        private void BtnRefreshSettingsPdf_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateSettingsPdfPreview();
+            SetStatus("پیش‌نمایش سند رسمی با موفقیت تازه‌سازی شد.");
+        }
+
+        public void UpdateSettingsPdfPreview()
+        {
+            if (SettingsPdfViewer == null) return;
 
             try
             {
-                _printService.PrintOrExportToPdf(sampleInv);
-                SetStatus("پیش‌نمایش چاپ پیش‌فاکتور با تنظیمات سربرگ و قلم جاری ارسال شد.");
+                var previewSettings = new AppSettings
+                {
+                    SellerName = !string.IsNullOrWhiteSpace(TxtSellerName?.Text) ? TxtSellerName.Text.Trim() : "شرکت آریان نیرو گستر اترک",
+                    SellerRegistrationNo = !string.IsNullOrWhiteSpace(TxtSellerRegistrationNo?.Text) ? TxtSellerRegistrationNo.Text.Trim() : "۸۸۶۵۴",
+                    SellerNationalCode = TxtSellerNatCode?.Text?.Trim() ?? "14008765432",
+                    SellerEconomicCode = TxtSellerEcoCode?.Text?.Trim() ?? "411567891234",
+                    SellerPhone = !string.IsNullOrWhiteSpace(TxtSellerPhone?.Text) ? TxtSellerPhone.Text.Trim() : "۰۵۱۳۷۱۳۲۰۸۴",
+                    SellerAddress = !string.IsNullOrWhiteSpace(TxtSellerAddress?.Text) ? TxtSellerAddress.Text.Trim() : "مشهد - خیابان سنایی",
+                    CompanyLogoPath = TxtCompanyLogoPath?.Text?.Trim() ?? "",
+                    CompanyStampPath = TxtCompanyStampPath?.Text?.Trim() ?? "",
+                    CompanyNameFontFamily = !string.IsNullOrWhiteSpace(CmbFontCompanyName?.Text) ? CmbFontCompanyName.Text.Trim() : "Vazirmatn",
+                    TableFontFamily = !string.IsNullOrWhiteSpace(CmbFontTable?.Text) ? CmbFontTable.Text.Trim() : "Vazirmatn",
+                    DefaultValidityText = !string.IsNullOrWhiteSpace(TxtDefaultValidityText?.Text) ? TxtDefaultValidityText.Text.Trim() : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.",
+                    PaymentTerms = !string.IsNullOrWhiteSpace(TxtPaymentTerms?.Text) ? TxtPaymentTerms.Text.Trim() : "نقد",
+                    DeliveryDays = !string.IsNullOrWhiteSpace(TxtDeliveryDays?.Text) ? TxtDeliveryDays.Text.Trim() : "موجود",
+                    DeliveryLocation = !string.IsNullOrWhiteSpace(TxtDeliveryLocation?.Text) ? TxtDeliveryLocation.Text.Trim() : "مشهد",
+                    SignatoryName = !string.IsNullOrWhiteSpace(TxtSignatoryName?.Text) ? TxtSignatoryName.Text.Trim() : "محمد احمدی پور هدش",
+                    ExpertRoleLabel = !string.IsNullOrWhiteSpace(TxtExpertRoleLabel?.Text) ? TxtExpertRoleLabel.Text.Trim() : "کارشناسی خرید:",
+                    CurrencyUnit = "ریال",
+                    BankAccounts = _settingsBankAccounts?.ToList() ?? new List<BankAccountInfo>()
+                };
+
+                if (double.TryParse(TxtFontSizeCompanyName?.Text?.Trim(), out double cSize) && cSize > 6)
+                    previewSettings.CompanyNameFontSize = cSize;
+                if (double.TryParse(TxtFontSizeTable?.Text?.Trim(), out double tSize) && tSize > 6)
+                    previewSettings.TableFontSize = tSize;
+                if (decimal.TryParse(TxtVatPercent?.Text?.Trim(), out decimal vat) && vat >= 0)
+                    previewSettings.VatPercent = vat;
+
+                var sampleInv = new ProformaInvoice
+                {
+                    InvoiceNumber = "ANA 405-0000284",
+                    IssueDateShamsi = "۱۴۰۵/۰۷/۲۵",
+                    Attachment = "ندارد",
+                    PageNumberText = "یک",
+                    CompanyName = "شرکت محترم مهام صنعت نیشابور",
+                    Subject = "قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:",
+                    CustomerLabelPrefix = "نام مشتری: شرکت محترم",
+                    SignatoryName = previewSettings.SignatoryName,
+                    ExpertName = "محمد احمدی پور هدش",
+                    ExpertRoleLabel = previewSettings.ExpertRoleLabel,
+                    ValidityText = previewSettings.DefaultValidityText,
+                    HighlightValidity = true,
+                    PaymentTerms = previewSettings.PaymentTerms,
+                    DeliveryDays = previewSettings.DeliveryDays,
+                    DeliveryLocation = previewSettings.DeliveryLocation,
+                    VatPercent = previewSettings.VatPercent,
+                    BankAccounts = previewSettings.BankAccounts,
+                    Items = new List<InvoiceItem>
+                    {
+                        new InvoiceItem { RowNumber = 1, ItemName = "داکت شیاردار ۲/۵×۴ رعد (شاخه ۲ متری)", Quantity = 60, Unit = "متر", RawPrice = 1924000 },
+                        new InvoiceItem { RowNumber = 2, ItemName = "داکت شیاردار ۴×۶ رعد (شاخه ۲ متری)", Quantity = 40, Unit = "متر", RawPrice = 3364000 }
+                    }
+                };
+
+                foreach (var it in sampleInv.Items) it.UpdateFromPercent();
+
+                var doc = _printService.CreateInvoiceFlowDocument(sampleInv, previewSettings);
+                SettingsPdfViewer.Document = doc;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Preview error: " + ex);
+            }
+        }
+
+        private void BuildCurrentSettingsSampleInvoice(out AppSettings previewSettings, out ProformaInvoice sampleInv)
+        {
+            previewSettings = new AppSettings
+            {
+                SellerName = !string.IsNullOrWhiteSpace(TxtSellerName?.Text) ? TxtSellerName.Text.Trim() : "شرکت آریان نیرو گستر اترک",
+                SellerRegistrationNo = !string.IsNullOrWhiteSpace(TxtSellerRegistrationNo?.Text) ? TxtSellerRegistrationNo.Text.Trim() : "۸۸۶۵۴",
+                SellerNationalCode = TxtSellerNatCode?.Text?.Trim() ?? "14008765432",
+                SellerEconomicCode = TxtSellerEcoCode?.Text?.Trim() ?? "411567891234",
+                SellerPhone = !string.IsNullOrWhiteSpace(TxtSellerPhone?.Text) ? TxtSellerPhone.Text.Trim() : "۰۵۱۳۷۱۳۲۰۸۴",
+                SellerAddress = !string.IsNullOrWhiteSpace(TxtSellerAddress?.Text) ? TxtSellerAddress.Text.Trim() : "مشهد - خیابان سنایی",
+                CompanyLogoPath = TxtCompanyLogoPath?.Text?.Trim() ?? "",
+                CompanyStampPath = TxtCompanyStampPath?.Text?.Trim() ?? "",
+                CompanyNameFontFamily = !string.IsNullOrWhiteSpace(CmbFontCompanyName?.Text) ? CmbFontCompanyName.Text.Trim() : "Vazirmatn",
+                TableFontFamily = !string.IsNullOrWhiteSpace(CmbFontTable?.Text) ? CmbFontTable.Text.Trim() : "Vazirmatn",
+                DefaultValidityText = !string.IsNullOrWhiteSpace(TxtDefaultValidityText?.Text) ? TxtDefaultValidityText.Text.Trim() : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.",
+                PaymentTerms = !string.IsNullOrWhiteSpace(TxtPaymentTerms?.Text) ? TxtPaymentTerms.Text.Trim() : "نقد",
+                DeliveryDays = !string.IsNullOrWhiteSpace(TxtDeliveryDays?.Text) ? TxtDeliveryDays.Text.Trim() : "موجود",
+                DeliveryLocation = !string.IsNullOrWhiteSpace(TxtDeliveryLocation?.Text) ? TxtDeliveryLocation.Text.Trim() : "مشهد",
+                SignatoryName = !string.IsNullOrWhiteSpace(TxtSignatoryName?.Text) ? TxtSignatoryName.Text.Trim() : "محمد احمدی پور هدش",
+                ExpertRoleLabel = !string.IsNullOrWhiteSpace(TxtExpertRoleLabel?.Text) ? TxtExpertRoleLabel.Text.Trim() : "کارشناسی خرید:",
+                CurrencyUnit = "ریال",
+                BankAccounts = _settingsBankAccounts?.ToList() ?? new List<BankAccountInfo>()
+            };
+
+            if (double.TryParse(TxtFontSizeCompanyName?.Text?.Trim(), out double cSize) && cSize > 6)
+                previewSettings.CompanyNameFontSize = cSize;
+            if (double.TryParse(TxtFontSizeTable?.Text?.Trim(), out double tSize) && tSize > 6)
+                previewSettings.TableFontSize = tSize;
+            if (decimal.TryParse(TxtVatPercent?.Text?.Trim(), out decimal vat) && vat >= 0)
+                previewSettings.VatPercent = vat;
+
+            sampleInv = new ProformaInvoice
+            {
+                InvoiceNumber = "ANA 405-0000284",
+                IssueDateShamsi = "۱۴۰۵/۰۷/۲۵",
+                Attachment = "ندارد",
+                PageNumberText = "یک",
+                CompanyName = "شرکت محترم مهام صنعت نیشابور",
+                Subject = "قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:",
+                CustomerLabelPrefix = "نام مشتری: شرکت محترم",
+                SignatoryName = previewSettings.SignatoryName,
+                ExpertName = "محمد احمدی پور هدش",
+                ExpertRoleLabel = previewSettings.ExpertRoleLabel,
+                ValidityText = previewSettings.DefaultValidityText,
+                HighlightValidity = true,
+                PaymentTerms = previewSettings.PaymentTerms,
+                DeliveryDays = previewSettings.DeliveryDays,
+                DeliveryLocation = previewSettings.DeliveryLocation,
+                VatPercent = previewSettings.VatPercent,
+                BankAccounts = previewSettings.BankAccounts,
+                Items = new List<InvoiceItem>
+                {
+                    new InvoiceItem { RowNumber = 1, ItemName = "داکت شیاردار ۲/۵×۴ رعد (شاخه ۲ متری)", Quantity = 60, Unit = "متر", RawPrice = 1924000 },
+                    new InvoiceItem { RowNumber = 2, ItemName = "داکت شیاردار ۴×۶ رعد (شاخه ۲ متری)", Quantity = 40, Unit = "متر", RawPrice = 3364000 }
+                }
+            };
+            foreach (var it in sampleInv.Items) it.UpdateFromPercent();
+        }
+
+        private void BtnExportSamplePdf_Click(object sender, RoutedEventArgs e)
+        {
+            BuildCurrentSettingsSampleInvoice(out AppSettings previewSettings, out ProformaInvoice sampleInv);
+            ExportInvoiceToPdfWithDialog(sampleInv, previewSettings);
+        }
+
+        private void BtnTestPrintSample_Click(object sender, RoutedEventArgs e)
+        {
+            BuildCurrentSettingsSampleInvoice(out AppSettings previewSettings, out ProformaInvoice sampleInv);
+
+            try
+            {
+                var doc = _printService.CreateInvoiceFlowDocument(sampleInv, previewSettings);
+                var printDialog = new PrintDialog();
+                if (printDialog.ShowDialog() == true)
+                {
+                    printDialog.PrintDocument(((System.Windows.Documents.IDocumentPaginatorSource)doc).DocumentPaginator, "پیش‌فاکتور نمونه رسمی");
+                    SetStatus("پیش‌نمایش چاپ سند رسمی با تنظیمات جاری با موفقیت ارسال گردید.");
+                }
             }
             catch (Exception ex)
             {

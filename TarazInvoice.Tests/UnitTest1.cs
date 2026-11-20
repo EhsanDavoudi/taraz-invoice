@@ -898,6 +898,8 @@ namespace TarazInvoice.Tests
                 // ۳. مشتری و اقلام
                 Assert.Contains("پالود پارسیان", ws.Cell("A6").GetString());
                 Assert.Equal("کلید فرمان جرثقیل ۶ خانه تایوانی", ws.Cell(10, 2).GetString());
+                Assert.Equal(XLAlignmentHorizontalValues.Right, ws.Cell(10, 2).Style.Alignment.Horizontal);
+                Assert.Equal(XLAlignmentReadingOrderValues.RightToLeft, ws.Cell(10, 2).Style.Alignment.ReadingOrder);
                 Assert.Equal(2, ws.Cell(10, 3).GetDouble());
                 Assert.Equal(58300000, ws.Cell(10, 5).GetDouble());
                 Assert.Equal(116600000, ws.Cell(10, 6).GetDouble());
@@ -952,6 +954,92 @@ namespace TarazInvoice.Tests
                     Directory.Delete(tempDir, true);
                 }
             }
+        }
+
+        [Fact]
+        public void Test_MainWindow_InstantiatesWithoutCrash()
+        {
+            Exception? threadEx = null;
+            var t = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    if (System.Windows.Application.Current == null)
+                    {
+                        var app = new TarazInvoice.App();
+                        app.InitializeComponent();
+                    }
+                    var win = new TarazInvoice.MainWindow();
+                    Assert.NotNull(win);
+                }
+                catch (Exception ex)
+                {
+                    threadEx = ex;
+                }
+            });
+            t.SetApartmentState(System.Threading.ApartmentState.STA);
+            t.Start();
+            t.Join();
+
+            Assert.Null(threadEx);
+        }
+
+        [Fact]
+        public void Test_RenderFlowDocumentToImage()
+        {
+            Exception? threadEx = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    var storage = new StorageService();
+                    var printService = new PrintPdfService(storage);
+                    var inv = new ProformaInvoice
+                    {
+                        InvoiceNumber = "ANA 405-0000284",
+                        CompanyName = "شرکت محترم مهام صنعت نیشابور",
+                        Subject = "قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:",
+                        Items = new List<InvoiceItem>
+                        {
+                            new InvoiceItem { RowNumber = 1, ItemName = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰", Quantity = 60, Unit = "متر", RawPrice = 1924000 },
+                            new InvoiceItem { RowNumber = 2, ItemName = "فلنج کربن استیل گلوجوش ۶ اینچ", Quantity = 40, Unit = "متر", RawPrice = 3364000 }
+                        }
+                    };
+                    foreach (var it in inv.Items) it.UpdateFromPercent();
+
+                    var doc = printService.CreateInvoiceFlowDocument(inv);
+                    var paginator = ((System.Windows.Documents.IDocumentPaginatorSource)doc).DocumentPaginator;
+                    paginator.PageSize = new System.Windows.Size(794, 1123);
+                    var page = paginator.GetPage(0);
+
+                    var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(794, 1123, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    var dv = new System.Windows.Media.DrawingVisual();
+                    using (var dc = dv.RenderOpen())
+                    {
+                        dc.DrawRectangle(System.Windows.Media.Brushes.White, null, new System.Windows.Rect(0, 0, 794, 1123));
+                    }
+                    rtb.Render(dv);
+                    rtb.Render(page.Visual);
+
+                    string outPng = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_rendered_page.png");
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+                    using (var fs = File.Create(outPng))
+                    {
+                        encoder.Save(fs);
+                    }
+                    Assert.True(File.Exists(outPng));
+                }
+                catch (Exception ex)
+                {
+                    threadEx = ex;
+                }
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.Null(threadEx);
         }
 
         [Fact]
@@ -1311,6 +1399,160 @@ namespace TarazInvoice.Tests
             thread.Join();
 
             Assert.True(true);
+        }
+
+        [Fact]
+        public void Test_ExcelExport_RowHeight_32px_And_Dynamic_MultiLine()
+        {
+            var storage = new StorageService();
+            var excel = new ExcelExportService(storage);
+
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "TEST-ROW-HEIGHT",
+                CompanyName = "شرکت تست",
+                Items = new List<InvoiceItem>
+                {
+                    // ردیف ۱: تک خطی - ارتفاع باید ۳۲ باشد
+                    new InvoiceItem { RowNumber = 1, ItemName = "لوله استیل ۳۰۴ سایز ۱ اینچ", Quantity = 10, RawPrice = 1000000, Unit = "متر" },
+                    // ردیف ۲: دو خطی - ارتفاع باید دو برابر (۶۴) باشد
+                    new InvoiceItem { RowNumber = 2, ItemName = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰ به همراه عملگر پنوماتیکی و میکروسوئیچ باکس", Quantity = 2, RawPrice = 45000000, Unit = "عدد" },
+                    // ردیف ۳: سه خطی - ارتفاع باید سه برابر (۹۶) باشد
+                    new InvoiceItem { RowNumber = 3, ItemName = "شیر توپی فولادی کلاس ۳۰۰ فلنجدار ۳ اینچ فول هارد فیس دارای گواهی بازرسی شخص ثالث و متریال تست ریپورت کامل سازنده به همراه متعلقات نصب", Quantity = 1, RawPrice = 85000000, Unit = "عدد" }
+                }
+            };
+            foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "HeightTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string outPath = Path.Combine(tempDir, "HeightTest.xlsx");
+                excel.ExportInvoice(invoice, outPath);
+                Assert.True(File.Exists(outPath));
+
+                using var wb = new XLWorkbook(outPath);
+                var ws = wb.Worksheets.First();
+
+                // هدر جدول (سطر ۹) باید ۳۲ باشد
+                Assert.Equal(32, ws.Row(9).Height);
+
+                // سطر اول کالا (سطر ۱۰) تک‌خطی = ۳۲
+                Assert.Equal(32, ws.Row(10).Height);
+
+                // سطر دوم کالا (سطر ۱۱) دوخطی = ۶۴ (دو برابر)
+                Assert.Equal(64, ws.Row(11).Height);
+
+                // سطر سوم کالا (سطر ۱۲) سه‌خطی = ۹۶ (سه برابر)
+                Assert.Equal(96, ws.Row(12).Height);
+
+                // شرح کالا باید حتماً راست‌چین و RTL باشد
+                for (int r = 10; r <= 12; r++)
+                {
+                    Assert.Equal(XLAlignmentHorizontalValues.Right, ws.Cell(r, 2).Style.Alignment.Horizontal);
+                    Assert.Equal(XLAlignmentReadingOrderValues.RightToLeft, ws.Cell(r, 2).Style.Alignment.ReadingOrder);
+                }
+
+                // سطر جمع کل با ارزش افزوده نباید هایلایت زرد داشته باشد
+                var yellowColor = XLColor.FromArgb(255, 255, 0);
+                Assert.NotEqual(yellowColor, ws.Cell(15, 5).Style.Fill.BackgroundColor);
+                Assert.NotEqual(yellowColor, ws.Cell(16, 5).Style.Fill.BackgroundColor);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public async Task Test_StorageService_MultiUser_Concurrency_Safety()
+        {
+            var storage = new StorageService();
+            var inv1 = new ProformaInvoice { Id = Guid.NewGuid(), InvoiceNumber = "CONCUR-1", CompanyName = "شرکت الف" };
+            var inv2 = new ProformaInvoice { Id = Guid.NewGuid(), InvoiceNumber = "CONCUR-2", CompanyName = "شرکت ب" };
+
+            // شبیه‌سازی دو کاربر همزمان روی شبکه
+            var t1 = Task.Run(() => storage.AddOrUpdateInvoice(inv1));
+            var t2 = Task.Run(() => storage.AddOrUpdateInvoice(inv2));
+
+            await Task.WhenAll(t1, t2);
+
+            var list = storage.GetInvoices();
+            Assert.Contains(list, x => x.Id == inv1.Id);
+            Assert.Contains(list, x => x.Id == inv2.Id);
+
+            // پاک‌سازی
+            storage.DeleteInvoice(inv1.Id);
+            storage.DeleteInvoice(inv2.Id);
+        }
+
+        [Fact]
+        public void Test_GetSafeInvoiceFileName_FormatMatchesSpecification()
+        {
+            var inv1 = new ProformaInvoice
+            {
+                InvoiceNumber = "ANA-405-0000284",
+                CompanyName = "شرکت محترم مهام صنعت نیشابور",
+                ExpertName = "محمد احمدی پور هدش"
+            };
+
+            string name1 = PrintPdfService.GetSafeInvoiceFileName(inv1, "pdf");
+            Assert.Equal("ANA-405-0000284 - شرکت محترم مهام صنعت نیشابور - محمد احمدی پور هدش.pdf", name1);
+
+            // سناریوی بدون کارشناس
+            var inv2 = new ProformaInvoice
+            {
+                InvoiceNumber = "ANA-405-0000285",
+                CompanyName = "شرکت پتروشیمی رازی",
+                ExpertName = ""
+            };
+
+            string name2 = PrintPdfService.GetSafeInvoiceFileName(inv2, "pdf");
+            Assert.Equal("ANA-405-0000285 - شرکت پتروشیمی رازی.pdf", name2);
+        }
+
+        [Fact]
+        public void Test_SaveInvoiceAsPdfFile_CreatesValidPdf()
+        {
+            Exception? threadEx = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    var storage = new StorageService();
+                    var printService = new PrintPdfService(storage);
+                    var inv = new ProformaInvoice
+                    {
+                        InvoiceNumber = "ANA-405-0000284",
+                        CompanyName = "شرکت محترم مهام صنعت نیشابور",
+                        ExpertName = "محمد احمدی پور هدش",
+                        Subject = "قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:",
+                        Items = new List<InvoiceItem>
+                        {
+                            new InvoiceItem { RowNumber = 1, ItemName = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰", Quantity = 60, Unit = "متر", RawPrice = 1924000 },
+                            new InvoiceItem { RowNumber = 2, ItemName = "فلنج کربن استیل گلوجوش ۶ اینچ", Quantity = 40, Unit = "متر", RawPrice = 3364000 }
+                        }
+                    };
+                    foreach (var it in inv.Items) it.UpdateFromPercent();
+
+                    string testPdf = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_invoice_export.pdf");
+                    if (File.Exists(testPdf)) File.Delete(testPdf);
+
+                    printService.SaveInvoiceAsPdfFile(inv, testPdf);
+
+                    Assert.True(File.Exists(testPdf), "PDF file should be created");
+                    Assert.True(new FileInfo(testPdf).Length > 5000, "PDF file should contain data");
+                }
+                catch (Exception ex)
+                {
+                    threadEx = ex;
+                }
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.Null(threadEx);
         }
     }
 }

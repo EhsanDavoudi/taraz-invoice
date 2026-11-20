@@ -15,7 +15,6 @@
         FlowDirection="LeftToRight"
         FontFamily="{StaticResource AppFontFamily}"
         TextElement.FontFamily="{StaticResource AppFontFamily}"
-        Icon="/Resources/logo.png"
         PreviewKeyDown="MainWindow_PreviewKeyDown">
 
     <Grid>
@@ -1052,7 +1051,7 @@
                                         </Popup>
 
                                         <DataGrid x:Name="DgrInvoiceItems" AutoGenerateColumns="False" CanUserAddRows="False" 
-                                                  SelectionMode="Extended" SelectionUnit="CellOrRowHeader" RowHeight="52"
+                                                  SelectionMode="Extended" SelectionUnit="CellOrRowHeader" MinRowHeight="32"
                                                   PreviewMouseLeftButtonUp="DataGrid_PreviewMouseLeftButtonUp"
                                                   MinHeight="180" MaxHeight="450" VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Auto">
@@ -1064,23 +1063,26 @@
                                                 <DataGridTemplateColumn Header="محصول (شرح کالا یا خدمات) *" Width="2.8*" MinWidth="180">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="2" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="6,3" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding ItemName}" 
-                                                                           VerticalAlignment="Center" HorizontalAlignment="Right" 
+                                                                           FlowDirection="RightToLeft"
+                                                                           VerticalAlignment="Center" HorizontalAlignment="Stretch" 
                                                                            TextAlignment="Right" TextWrapping="Wrap" 
-                                                                           FontSize="13" FontWeight="SemiBold" 
+                                                                           FontSize="12.5" FontWeight="SemiBold" 
                                                                            Foreground="{StaticResource TextPrimaryBrush}"/>
                                                             </Border>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <Grid VerticalAlignment="Center" Margin="2">
+                                                            <Grid VerticalAlignment="Center" Margin="1">
                                                                 <ui:TextBox x:Name="TxtGridItemName"
                                                                             Text="{Binding ItemName, UpdateSourceTrigger=PropertyChanged}" 
+                                                                            FlowDirection="RightToLeft"
+                                                                            TextAlignment="Right"
                                                                             PlaceholderText="نام کالا یا جستجو در انبار..."
-                                                                            FontSize="13" FontWeight="SemiBold"
-                                                                            Height="38" Padding="8,4"
+                                                                            FontSize="12.5" FontWeight="SemiBold"
+                                                                            Height="32" Padding="6,2"
                                                                             VerticalAlignment="Center" HorizontalAlignment="Stretch"
                                                                             Loaded="TxtGridItemName_Loaded"
                                                                             TextChanged="TxtGridItemName_TextChanged"
@@ -1094,14 +1096,14 @@
                                                 <DataGridTemplateColumn Header="تعداد *" Width="0.7*" MinWidth="55">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam">
-                                                                <TextBlock Text="{Binding Quantity, StringFormat={}{0:G29}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12.5"/>
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="4,2" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                                <TextBlock Text="{Binding Quantity, StringFormat={}{0:G29}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
                                                             </Border>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <ui:TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:G29}}" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center"/>
+                                                            <ui:TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:G29}}" TextAlignment="Center" Height="32" Padding="2" VerticalAlignment="Center"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
@@ -1110,14 +1112,14 @@
                                                 <DataGridTemplateColumn Header="واحد" Width="0.6*" MinWidth="50">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="4,2" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding Unit}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
                                                             </Border>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <ui:TextBox Text="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center"/>
+                                                            <ui:TextBox Text="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" TextAlignment="Center" Height="32" Padding="2" VerticalAlignment="Center"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
@@ -1126,14 +1128,14 @@
                                                 <DataGridTemplateColumn x:Name="ColRawPrice" Header="قیمت خام (ریال)" Width="1.2*" MinWidth="100">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam">
-                                                                <TextBlock Text="{Binding RawPrice, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12.5"/>
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="4,2" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                                <TextBlock Text="{Binding RawPrice, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
                                                             </Border>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <ui:TextBox Text="{Binding RawPrice, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalNumberConverter}}" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center"/>
+                                                            <ui:TextBox Text="{Binding RawPrice, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalNumberConverter}}" TextAlignment="Center" Height="32" Padding="2" VerticalAlignment="Center"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
@@ -1142,14 +1144,14 @@
                                                 <DataGridTemplateColumn x:Name="ColDiscountPercent" Header="تخفیف % *" Width="0.75*" MinWidth="65">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="4,2" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding DiscountPercent, Converter={StaticResource NullablePercentDisplayConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
                                                             </Border>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <ui:TextBox Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullablePercentConverter}}" PlaceholderText="الزامی" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center"/>
+                                                            <ui:TextBox Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullablePercentConverter}}" PlaceholderText="الزامی" TextAlignment="Center" Height="32" Padding="2" VerticalAlignment="Center"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
@@ -2091,17 +2093,55 @@
                         </Border>
                     </Grid>
 
-                    <!-- ۵. صفحه تنظیمات و ظاهر پیش‌فاکتور -->
-                    <Grid x:Name="ViewSettings" Margin="24" Visibility="Collapsed">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.2*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                    <!-- ۵. صفحه تنظیمات و پیش‌نمایش زنده سند رسمی (PDF / چاپ) -->
+                    <Grid x:Name="ViewSettings" Margin="16" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <!-- ستون ۱ (راست): فرم‌های تنظیمات شرکت، سربرگ، قلم‌ها، حساب‌ها و پشتیبان‌گیری -->
+                            <ColumnDefinition Width="480"/>
+                            <!-- ستون ۲ (چپ): پیش‌نمایش زنده سند رسمی (PDF / چاپ) با قابلیت اعمال آنی تغییرات -->
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                                <!-- ستون ۱ (راست): تنظیمات تصویر لوگو، قلم‌ها، سربرگ و اطلاعات بانکی -->
-                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                        <!-- ستون راست: فرم‌های تنظیمات داخل اسکرول -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,14,0" Padding="0,0,6,0">
+                            <StackPanel>
+                                <!-- کارت ۱: مشخصات شرکت ما (فروشنده) -->
+                                <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,12" Padding="16">
+                                    <StackPanel>
+                                        <TextBlock Text="مشخصات شرکت ما (فروشنده)" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
+
+                                        <TextBlock Text="نام شرکت فروشنده (سربرگ راست):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                        <ui:TextBox x:Name="TxtSellerName" Margin="0,0,0,8" TextChanged="OnSettingsControlChanged"/>
+
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Text="شماره ثبت:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                <ui:TextBox x:Name="TxtSellerRegistrationNo" Text="۸۸۶۵۴" TextChanged="OnSettingsControlChanged"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                                <TextBlock Text="شناسه ملی:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                <ui:TextBox x:Name="TxtSellerNatCode"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                                                <TextBlock Text="کد اقتصادی:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                <ui:TextBox x:Name="TxtSellerEcoCode"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="تلفن تماس (پاورقی برگه):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                        <ui:TextBox x:Name="TxtSellerPhone" Margin="0,0,0,8" TextChanged="OnSettingsControlChanged"/>
+
+                                        <TextBlock Text="نشانی دفتر (پاورقی برگه):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10"/>
+                                        <ui:TextBox x:Name="TxtSellerAddress" Margin="0,0,0,10" TextChanged="OnSettingsControlChanged"/>
+
+                                        <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره مشخصات فروشنده" Click="BtnSaveSellerSettings_Click" HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Border>
                                     <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,14" Padding="18">
                                         <StackPanel>
                                             <TextBlock Text="تنظیمات تصویر شرکت، قلم‌ها و سربرگ پیش‌فاکتور" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
@@ -2355,74 +2395,69 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- کارت قالب استاندارد مصوب -->
-                                    <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0"/>
-                                                <TextBlock Text="قالب استاندارد و رسمی مصوب سیستم" FontWeight="Bold" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                            <TextBlock Text="خروجی پیش‌فاکتورها به صورت رسمی، بر اساس طرح استاندارد مصوب شرکت (شامل سربرگ، تصویر لوگو و مهر رسمی، نام اقلام کالا ۲ و ۳ خطی خودکار، ردیف‌های محاسباتی و جدول مشخصات واریزی) در هر دو بستر اکسل و پرینت مستقیم تولید می‌گردد." 
-                                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" LineHeight="18"/>
+                                <!-- کارت ۴: پشتیبان‌گیری از اطلاعات -->
+                                <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
+                                    <StackPanel>
+                                        <TextBlock Text="پشتیبان‌گیری از اطلاعات سیستم" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="تهیه فایل پشتیبان و بازیابی فاکتورها، شرکت‌ها، انبار و کارشناسان." FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8"/>
+
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="تهیه پشتیبان (Backup)" Margin="0,0,8,0" Click="BtnBackup_Click"/>
+                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=ArrowDownload24}" Content="بازیابی (Restore)" Click="BtnRestore_Click"/>
                                         </StackPanel>
-                                    </Border>
-                                </StackPanel>
-
-                                <!-- ستون ۲ (چپ): مشخصات شرکت ما (فروشنده) و پشتیبان‌گیری -->
-                                <StackPanel Grid.Column="1">
-                                    <!-- مشخصات شرکت ما (فروشنده) -->
-                                    <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,14" Padding="18">
-                                        <StackPanel>
-                                            <TextBlock Text="مشخصات شرکت ما (فروشنده)" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
-
-                                            <TextBlock Text="نام شرکت فروشنده:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                            <ui:TextBox x:Name="TxtSellerName" Margin="0,0,0,8"/>
-
-                                            <Grid Margin="0,0,0,8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                                    <TextBlock Text="شماره ثبت:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                    <ui:TextBox x:Name="TxtSellerRegistrationNo" Text="۸۸۶۵۴"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1" Margin="4,0,4,0">
-                                                    <TextBlock Text="شناسه ملی:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                    <ui:TextBox x:Name="TxtSellerNatCode"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="2" Margin="4,0,0,0">
-                                                    <TextBlock Text="کد اقتصادی:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                    <ui:TextBox x:Name="TxtSellerEcoCode"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <TextBlock Text="تلفن تماس:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                            <ui:TextBox x:Name="TxtSellerPhone" Margin="0,0,0,8"/>
-
-                                            <TextBlock Text="نشانی:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                            <ui:TextBox x:Name="TxtSellerAddress" Margin="0,0,0,12"/>
-
-                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره مشخصات فروشنده" Click="BtnSaveSellerSettings_Click"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- پشتیبان‌گیری از اطلاعات -->
-                                    <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="18">
-                                        <StackPanel>
-                                            <TextBlock Text="پشتیبان‌گیری از اطلاعات" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,6"/>
-                                            <TextBlock Text="تهیه فایل پشتیبان از تمام فاکتورها، شرکت‌ها و کارشناسان." FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10"/>
-
-                                            <StackPanel Orientation="Horizontal">
-                                                <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="تهیه پشتیبان (Backup)" Margin="0,0,8,0" Click="BtnBackup_Click"/>
-                                                <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=ArrowDownload24}" Content="بازیابی (Restore)" Click="BtnRestore_Click"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
                         </ScrollViewer>
+
+                        <!-- ستون ۲ (چپ): پیش‌نمایش زنده سند رسمی PDF / چاپ (با قابلیت اعمال در لحظه تغییرات) -->
+                        <Border Grid.Column="1" Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12" Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- نوار ابزار بالای پیش‌نمایش سند -->
+                                <Border Grid.Row="0" Background="{StaticResource SurfaceSubtleBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ui:SymbolIcon Symbol="DocumentPdf24" Foreground="{StaticResource PrimaryBrush}" FontSize="18" Margin="0,0,8,0"/>
+                                            <TextBlock Text="پیش‌نمایش زنده سند رسمی (PDF / پرینت)" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="10" Padding="6,1" Margin="8,0,0,0">
+                                                <TextBlock Text="به‌روزرسانی آنی" FontSize="10" Foreground="#047857" FontWeight="SemiBold"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}" Content="تازه‌سازی" ToolTip="تازه‌سازی پیش‌نمایش سند" Click="BtnRefreshSettingsPdf_Click" Margin="0,0,4,0"/>
+                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=DocumentPdf24}" Content="صدور PDF نمونه" ToolTip="ذخیره و صدور فایل PDF پیش‌فاکتور نمونه با نام خودکار و باز شدن سریع" Click="BtnExportSamplePdf_Click" Margin="0,0,4,0"/>
+                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Print24}" Content="چاپ مستقیم" ToolTip="چاپ مستقیم روی چاپگر فیزیکی" Click="BtnTestPrintSample_Click"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- کادر برگه A4 پیش‌نمایش سند -->
+                                <Border Grid.Row="1" Background="#E2E8F0" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#CBD5E1">
+                                        <Border Background="White" BorderBrush="#94A3B8" BorderThickness="1" Margin="14" HorizontalAlignment="Center">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="14" Direction="270" ShadowDepth="4" Opacity="0.25" Color="#0F172A"/>
+                                            </Border.Effect>
+                                            <FlowDocumentScrollViewer x:Name="SettingsPdfViewer" 
+                                                                      HorizontalScrollBarVisibility="Disabled" 
+                                                                      VerticalScrollBarVisibility="Disabled"
+                                                                      IsToolBarVisible="False"
+                                                                      Zoom="80"
+                                                                      Background="White"/>
+                                        </Border>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Border>
                     </Grid>
 
                 </Grid>

@@ -8,6 +8,8 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TarazInvoice.Models;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Drawing;
 
 namespace TarazInvoice.Services
 {
@@ -60,9 +62,9 @@ namespace TarazInvoice.Services
             return full;
         }
 
-        public FlowDocument CreateInvoiceFlowDocument(ProformaInvoice invoice)
+        public FlowDocument CreateInvoiceFlowDocument(ProformaInvoice invoice, AppSettings? overrideSettings = null)
         {
-            var settings = _storage.GetSettings();
+            var settings = overrideSettings ?? _storage.GetSettings();
 
             var mainFontFamily = new FontFamily(string.IsNullOrWhiteSpace(settings.TableFontFamily) ? "Vazirmatn, Tahoma, Segoe UI" : settings.TableFontFamily);
             var companyFontFamily = new FontFamily(string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? "Vazirmatn, Tahoma, Segoe UI" : settings.CompanyNameFontFamily);
@@ -87,9 +89,9 @@ namespace TarazInvoice.Services
 
             // ==================== ۱. سربرگ اصلی (مطابق نمونه تصویر) ====================
             var headerTable = new Table { Margin = new Thickness(0, 0, 0, 12), CellSpacing = 0 };
-            headerTable.Columns.Add(new TableColumn { Width = new GridLength(365) }); // نام شرکت و لوگو (راست - پهنای کافی برای نمایش نام کامل بدون بریده شدن)
-            headerTable.Columns.Add(new TableColumn { Width = new GridLength(170) }); // عنوان پیش‌فاکتور (وسط)
-            headerTable.Columns.Add(new TableColumn { Width = new GridLength(199) }); // تاریخ و شماره (چپ)
+            headerTable.Columns.Add(new TableColumn { Width = new GridLength(270) }); // نام شرکت و لوگو (راست)
+            headerTable.Columns.Add(new TableColumn { Width = new GridLength(194) }); // عنوان پیش‌فاکتور (وسط دقیق صفحه)
+            headerTable.Columns.Add(new TableColumn { Width = new GridLength(270) }); // تاریخ و شماره (چپ)
 
             var headerGroup = new TableRowGroup();
             var headerRow = new TableRow();
@@ -132,45 +134,46 @@ namespace TarazInvoice.Services
                 Foreground = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 295
+                MaxWidth = 205
             };
             companyStack.Children.Add(companyNameBlock);
             companyCell.Blocks.Add(new BlockUIContainer(companyStack));
 
-            // ب) بخش وسط: عنوان درشت «پیش فاکتور»
-            var titleCell = new TableCell(new Paragraph(new Run("پیش فاکتور"))
+            // ب) بخش وسط: عنوان درشت «پیش فاکتور» با تراز کاملاً وسط‌چین در کل صفحه
+            var titlePara = new Paragraph(new Run("پیش فاکتور"))
             {
-                FontSize = 24,
+                FontSize = 26,
                 FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Center,
                 Foreground = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
-                Margin = new Thickness(0, 12, 0, 0)
-            });
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+            var titleCell = new TableCell(titlePara)
+            {
+                TextAlignment = TextAlignment.Center
+            };
 
-            // ج) بخش چپ: کادر تاریخ، شماره، پیوست و صفحه (مشابه نمونه اکسل کاربر)
+            // ج) بخش چپ: مشخصات تاریخ، شماره، پیوست و صفحه بدون کادر ضخیم (دقیقاً مشابه تصویر سوم)
             var infoBox = new TableCell
             {
-                BorderBrush = borderBrush,
-                BorderThickness = new Thickness(1),
+                BorderThickness = new Thickness(0),
                 Padding = new Thickness(2)
             };
             var infoTable = new Table { CellSpacing = 0, Margin = new Thickness(0) };
-            infoTable.Columns.Add(new TableColumn { Width = new GridLength(65) });
-            infoTable.Columns.Add(new TableColumn { Width = new GridLength(125) });
+            infoTable.Columns.Add(new TableColumn { Width = new GridLength(85) });
+            infoTable.Columns.Add(new TableColumn { Width = new GridLength(185) });
             var infoGroup = new TableRowGroup();
 
             void AddMetaRow(string label, string val, bool isLast = false)
             {
                 var r = new TableRow();
-                var lblCell = new TableCell(new Paragraph(new Bold(new Run(label))) { Margin = new Thickness(4, 2, 4, 2), FontSize = 10, TextAlignment = TextAlignment.Right })
+                var lblCell = new TableCell(new Paragraph(new Bold(new Run(label))) { Margin = new Thickness(2, 2, 6, 2), FontSize = 10.5 })
                 {
-                    BorderBrush = lightBorderBrush,
-                    BorderThickness = new Thickness(0, 0, 0, isLast ? 0 : 1)
+                    BorderThickness = new Thickness(0)
                 };
-                var valCell = new TableCell(new Paragraph(new Run(val)) { Margin = new Thickness(4, 2, 4, 2), FontSize = 10, TextAlignment = TextAlignment.Center })
+                var valCell = new TableCell(new Paragraph(new Run(val)) { Margin = new Thickness(2, 2, 2, 2), FontSize = 10.5 })
                 {
-                    BorderBrush = lightBorderBrush,
-                    BorderThickness = new Thickness(1, 0, 0, isLast ? 0 : 1)
+                    BorderThickness = new Thickness(0)
                 };
                 r.Cells.Add(lblCell);
                 r.Cells.Add(valCell);
@@ -243,47 +246,67 @@ namespace TarazInvoice.Services
             AddInvoiceTableCell(thRow, $"جمع کل ({currUnit})", TextAlignment.Center, isHeader: true, borderBrush: borderBrush);
             tableGroup.Rows.Add(thRow);
 
-            // سطرهای اقلام - شرح کالا در صورت طولانی بودن به ۲ یا ۳ خط می‌شکند
+            // سطرهای اقلام - شرح کالا در صورت طولانی بودن به ۲ یا ۳ خط می‌شکند و ارتفاع سطر دقیقاً دو یا سه برابر (۶۴ یا ۹۶ پیکسل) می‌شود
             int rowIdx = 1;
             foreach (var item in invoice.Items)
             {
                 var tr = new TableRow();
 
-                // ردیف
-                AddInvoiceTableCell(tr, rowIdx.ToString(), TextAlignment.Center, isHeader: false, borderBrush: borderBrush);
+                string itemNameStr = item.ItemName ?? "";
+                int charCount = itemNameStr.Length;
+                int explicitLines = itemNameStr.Split('\n').Length;
+                int wrapLines = (int)Math.Ceiling(Math.Max(1, charCount) / 38.0);
+                int estimatedLines = Math.Max(explicitLines, wrapLines);
+                double targetHeight = estimatedLines <= 1 ? 32 : (estimatedLines == 2 ? 64 : estimatedLines * 32);
 
-                // شرح کالا با شکست خطوط و جهت اکیداً راست‌چین برای حفظ ترتیب صحیح اعداد و خط‌تیره‌های فارسی
-                string safeItemName = FormatPersianRtlText(item.ItemName);
-                var namePara = new Paragraph(new Run(safeItemName))
+                TableCell CreateCell(string text, TextAlignment align, bool isItemName = false)
                 {
-                    FlowDirection = FlowDirection.RightToLeft,
-                    TextAlignment = TextAlignment.Right,
-                    Margin = new Thickness(6, 6, 6, 6),
-                    FontSize = tableFontSize,
-                    FontFamily = mainFontFamily,
-                    LineHeight = 17
-                };
-                var nameCell = new TableCell(namePara)
-                {
-                    FlowDirection = FlowDirection.RightToLeft,
-                    TextAlignment = TextAlignment.Right,
-                    BorderBrush = borderBrush,
-                    BorderThickness = new Thickness(1)
-                };
-                tr.Cells.Add(nameCell);
+                    var container = new Border
+                    {
+                        MinHeight = targetHeight,
+                        Padding = isItemName ? new Thickness(8, 2, 8, 2) : new Thickness(4, 2, 4, 2)
+                    };
+                    var tb = new TextBlock
+                    {
+                        Text = text,
+                        FontFamily = mainFontFamily,
+                        FontSize = tableFontSize,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        TextAlignment = align,
+                        TextWrapping = isItemName ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                        LineHeight = isItemName ? 18 : Double.NaN
+                    };
+                    if (isItemName)
+                    {
+                        tb.FlowDirection = FlowDirection.RightToLeft;
+                    }
+                    container.Child = tb;
+                    return new TableCell(new BlockUIContainer(container))
+                    {
+                        BorderBrush = borderBrush,
+                        BorderThickness = new Thickness(1)
+                    };
+                }
 
-                // مقدار
-                AddInvoiceTableCell(tr, item.Quantity.ToString("G29"), TextAlignment.Center, isHeader: false, borderBrush: borderBrush);
+                // ۱. ردیف
+                tr.Cells.Add(CreateCell(rowIdx.ToString(), TextAlignment.Center));
 
-                // واحد
+                // ۲. شرح کالا: اکیداً راست‌چین (RTL) با قابلیت شکست چندخطی
+                tr.Cells.Add(CreateCell(itemNameStr, TextAlignment.Right, isItemName: true));
+
+                // ۳. مقدار
+                tr.Cells.Add(CreateCell(item.Quantity.ToString("G29"), TextAlignment.Center));
+
+                // ۴. واحد
                 string unitStr = string.IsNullOrWhiteSpace(item.Unit) ? "عدد" : item.Unit;
-                AddInvoiceTableCell(tr, unitStr, TextAlignment.Center, isHeader: false, borderBrush: borderBrush);
+                tr.Cells.Add(CreateCell(unitStr, TextAlignment.Center));
 
-                // قیمت واحد
-                AddInvoiceTableCell(tr, $"{item.FinalUnitPrice:N0}", TextAlignment.Center, isHeader: false, borderBrush: borderBrush);
+                // ۵. قیمت واحد
+                tr.Cells.Add(CreateCell($"{item.FinalUnitPrice:N0}", TextAlignment.Center));
 
-                // جمع کل
-                AddInvoiceTableCell(tr, $"{item.TotalPrice:N0}", TextAlignment.Center, isHeader: false, borderBrush: borderBrush);
+                // ۶. جمع کل
+                tr.Cells.Add(CreateCell($"{item.TotalPrice:N0}", TextAlignment.Center));
 
                 tableGroup.Rows.Add(tr);
                 rowIdx++;
@@ -292,10 +315,21 @@ namespace TarazInvoice.Services
             itemsTable.RowGroups.Add(tableGroup);
             doc.Blocks.Add(itemsTable);
 
+            // نوار خاکستری باریک بالای جمع‌های مالی (مطابق نمونه سند رسمی تصویر سوم)
+            var grayBarTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 0) };
+            grayBarTable.Columns.Add(new TableColumn { Width = new GridLength(734) });
+            var grayGroup = new TableRowGroup();
+            var grayRow = new TableRow { Background = new SolidColorBrush(Color.FromRgb(89, 89, 89)) };
+            var grayCell = new TableCell(new Paragraph(new Run("")) { FontSize = 4, LineHeight = 8, Margin = new Thickness(0) }) { BorderThickness = new Thickness(0) };
+            grayRow.Cells.Add(grayCell);
+            grayGroup.Rows.Add(grayRow);
+            grayBarTable.RowGroups.Add(grayGroup);
+            doc.Blocks.Add(grayBarTable);
+
             // ==================== ۴. جدول جمع‌های مالی و ارزش افزوده ====================
-            // ۳ سطر در سمت چپ: جمع کل، ارزش افزوده، جمع کل با ارزش افزوده
+            // ۳ سطر در سمت چپ: جمع کل، ارزش افزوده، جمع کل با ارزش افزوده (بدون خط زرد مطابق درخواست کاربر)
             var summaryTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 10) };
-            summaryTable.Columns.Add(new TableColumn { Width = new GridLength(474) }); // فضای خالی / مبلغ به حروف
+            summaryTable.Columns.Add(new TableColumn { Width = new GridLength(474) }); // فضای خالی هم‌تراز با ۴ ستون جدول
             summaryTable.Columns.Add(new TableColumn { Width = new GridLength(130) }); // برچسب جمع
             summaryTable.Columns.Add(new TableColumn { Width = new GridLength(130) }); // مقدار جمع
 
@@ -303,52 +337,55 @@ namespace TarazInvoice.Services
 
             // سطر ۱: جمع کل
             var sumRow1 = new TableRow();
-            var wordsCell = new TableCell(new Paragraph(new Bold(new Run($"مبلغ کل به حروف: {JalaliDateHelper.NumberToWords((long)invoice.GrandTotalWithVat)} {currUnit}")))
+            var emptyCell1 = new TableCell(new Paragraph(new Run("")) { Margin = new Thickness(0), FontSize = 1 })
             {
-                FontSize = 10.5,
-                Margin = new Thickness(4)
-            })
-            {
-                RowSpan = 3
+                RowSpan = 3,
+                BorderBrush = borderBrush,
+                BorderThickness = new Thickness(1)
             };
-            sumRow1.Cells.Add(wordsCell);
+            sumRow1.Cells.Add(emptyCell1);
             AddInvoiceTableCell(sumRow1, $"جمع کل ( {currUnit} )", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, bgBrush: summaryBgBrush, isBold: true);
             AddInvoiceTableCell(sumRow1, $"{invoice.GrandTotal:N0}", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, isBold: true);
             summaryGroup.Rows.Add(sumRow1);
 
             // سطر ۲: ارزش افزوده
             var sumRow2 = new TableRow();
-            Brush vatBg = invoice.HighlightVat ? new SolidColorBrush(Color.FromRgb(254, 240, 138)) : summaryBgBrush;
-            AddInvoiceTableCell(sumRow2, $"ارزش افزوده ( {currUnit} )", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, bgBrush: vatBg, isBold: true);
-            AddInvoiceTableCell(sumRow2, $"{invoice.VatAmount:N0}", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, bgBrush: vatBg, isBold: true);
+            AddInvoiceTableCell(sumRow2, $"ارزش افزوده ( {currUnit} )", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, bgBrush: summaryBgBrush, isBold: true);
+            AddInvoiceTableCell(sumRow2, $"{invoice.VatAmount:N0}", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, isBold: true);
             summaryGroup.Rows.Add(sumRow2);
 
-            // سطر ۳: جمع کل با ارزش افزوده
-            var sumRow3 = new TableRow { Background = new SolidColorBrush(Color.FromRgb(254, 240, 138)) };
-            AddInvoiceTableCell(sumRow3, $"جمع کل با ارزش افزوده ({currUnit})", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, isBold: true);
+            // سطر ۳: جمع کل با ارزش افزوده (حذف خط زرد و استفاده از پس‌زمینه تمیز مطابق تصویر ۳)
+            var sumRow3 = new TableRow();
+            AddInvoiceTableCell(sumRow3, $"جمع کل با ارزش افزوده ({currUnit})", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, bgBrush: summaryBgBrush, isBold: true);
             AddInvoiceTableCell(sumRow3, $"{invoice.GrandTotalWithVat:N0}", TextAlignment.Center, isHeader: false, borderBrush: borderBrush, isBold: true);
             summaryGroup.Rows.Add(sumRow3);
 
             summaryTable.RowGroups.Add(summaryGroup);
             doc.Blocks.Add(summaryTable);
 
-            // ==================== ۵. کادر توضیحات و شرایط پرداخت (مطابق تصویر کاربر) ====================
+            // ==================== ۵. کادر توضیحات و شرایط پرداخت (مطابق تصویر ۳ سربرگ مصوب) ====================
+            // هدر توضیحات: کادر اختصاصی در سمت راست بالای جدول شرایط
+            var termsHeaderTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 0) };
+            termsHeaderTable.Columns.Add(new TableColumn { Width = new GridLength(160) });
+            termsHeaderTable.Columns.Add(new TableColumn { Width = new GridLength(574) });
+            var thg = new TableRowGroup();
+            var thr = new TableRow();
+            var thCell = new TableCell(new Paragraph(new Bold(new Run("توضیحات :"))) { Margin = new Thickness(6, 4, 6, 4), TextAlignment = TextAlignment.Center, FontSize = 10.5 })
+            {
+                Background = headerBgBrush,
+                BorderBrush = borderBrush,
+                BorderThickness = new Thickness(1, 1, 1, 0)
+            };
+            thr.Cells.Add(thCell);
+            thg.Rows.Add(thr);
+            termsHeaderTable.RowGroups.Add(thg);
+            doc.Blocks.Add(termsHeaderTable);
+
             var termsBorder = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 14) };
-            termsBorder.Columns.Add(new TableColumn { Width = new GridLength(24) });  // علامت لوزی ◆
+            termsBorder.Columns.Add(new TableColumn { Width = new GridLength(24) });  // علامت ستاره *
             termsBorder.Columns.Add(new TableColumn { Width = new GridLength(710) }); // متن شرط
 
             var termsGroup = new TableRowGroup();
-
-            // هدر توضیحات
-            var termsHeaderRow = new TableRow { Background = headerBgBrush };
-            var termsHeaderCell = new TableCell(new Paragraph(new Bold(new Run("توضیحات :"))) { Margin = new Thickness(6, 4, 6, 4) })
-            {
-                ColumnSpan = 2,
-                BorderBrush = borderBrush,
-                BorderThickness = new Thickness(1)
-            };
-            termsHeaderRow.Cells.Add(termsHeaderCell);
-            termsGroup.Rows.Add(termsHeaderRow);
 
             // ردیف‌های اطلاعات بانکی (پشتیبانی از چند حساب، شماره شبا و شماره کارت)
             var bankAccounts = (invoice.BankAccounts != null && invoice.BankAccounts.Count > 0)
@@ -373,35 +410,35 @@ namespace TarazInvoice.Services
             }
 
             // ردیف ۲: اعتبار فاکتور (با هایلایت زرد پیش‌فرض مطابق تصویر)
-            string validInfo = !string.IsNullOrWhiteSpace(invoice.ValidityText) ? invoice.ValidityText : (!string.IsNullOrWhiteSpace(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتورتا پایان روز می باشد.");
+            string validInfo = !string.IsNullOrWhiteSpace(invoice.ValidityText) ? invoice.ValidityText : (!string.IsNullOrWhiteSpace(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.");
             AddTermBulletRow(termsGroup, validInfo, borderBrush, isHighlighted: invoice.HighlightValidity);
 
-            // ردیف ۳: نوع تسویه
+            // ردیف ۳: محل تحویل کالا (دقیقاً مطابق ترتیب تصویر ۳)
+            string deliveryLocation = !string.IsNullOrWhiteSpace(invoice.DeliveryLocation) ? invoice.DeliveryLocation : settings.DeliveryLocation;
+            if (!string.IsNullOrWhiteSpace(deliveryLocation))
+            {
+                AddTermBulletRow(termsGroup, $"محل تحویل کالا: {deliveryLocation}", borderBrush, isHighlighted: invoice.HighlightDeliveryLocation);
+            }
+
+            // ردیف ۴: نوع تسویه (دقیقاً مطابق تصویر ۳)
             string paymentTerms = !string.IsNullOrWhiteSpace(invoice.PaymentTerms) ? invoice.PaymentTerms : settings.PaymentTerms;
             if (!string.IsNullOrWhiteSpace(paymentTerms))
             {
                 AddTermBulletRow(termsGroup, $"نوع تسویه : {paymentTerms}", borderBrush, isHighlighted: invoice.HighlightPaymentTerms);
             }
 
-            // ردیف ۴: توضیحات سفارشی فاکتور
-            string notesText = !string.IsNullOrWhiteSpace(invoice.Notes) ? invoice.Notes : settings.DefaultTerms;
-            if (!string.IsNullOrWhiteSpace(notesText))
-            {
-                AddTermBulletRow(termsGroup, $"توضیحات : {notesText}", borderBrush, isHighlighted: invoice.HighlightNotes);
-            }
-
-            // ردیف ۵: زمان تحویل
+            // ردیف ۵: زمان تحویل (دقیقاً مطابق تصویر ۳)
             string deliveryDays = !string.IsNullOrWhiteSpace(invoice.DeliveryDays) ? invoice.DeliveryDays : settings.DeliveryDays;
             if (!string.IsNullOrWhiteSpace(deliveryDays))
             {
                 AddTermBulletRow(termsGroup, $"زمان تحویل : {deliveryDays}", borderBrush, isHighlighted: invoice.HighlightDeliveryDays);
             }
 
-            // ردیف ۶: محل تحویل کالا
-            string deliveryLocation = !string.IsNullOrWhiteSpace(invoice.DeliveryLocation) ? invoice.DeliveryLocation : settings.DeliveryLocation;
-            if (!string.IsNullOrWhiteSpace(deliveryLocation))
+            // ردیف ۶: توضیحات سفارشی فاکتور
+            string notesText = !string.IsNullOrWhiteSpace(invoice.Notes) ? invoice.Notes : settings.DefaultTerms;
+            if (!string.IsNullOrWhiteSpace(notesText))
             {
-                AddTermBulletRow(termsGroup, $"محل تحویل کالا:{deliveryLocation}", borderBrush, isHighlighted: invoice.HighlightDeliveryLocation);
+                AddTermBulletRow(termsGroup, $"توضیحات : {notesText}", borderBrush, isHighlighted: invoice.HighlightNotes);
             }
 
             termsBorder.RowGroups.Add(termsGroup);
@@ -564,7 +601,7 @@ namespace TarazInvoice.Services
             var tr = new TableRow();
             Brush? bg = isHighlighted ? new SolidColorBrush(Color.FromRgb(254, 240, 138)) : null; // Yellow highlighter (#FEF08A)
 
-            var bulletCell = new TableCell(new Paragraph(new Run("◆")) { TextAlignment = TextAlignment.Center, Margin = new Thickness(2), FontSize = 8, FontWeight = FontWeights.Bold })
+            var bulletCell = new TableCell(new Paragraph(new Run("*")) { TextAlignment = TextAlignment.Center, Margin = new Thickness(2), FontSize = 11, FontWeight = FontWeights.Bold })
             {
                 BorderBrush = borderBrush,
                 BorderThickness = new Thickness(1, 0, 1, 1),
@@ -573,7 +610,7 @@ namespace TarazInvoice.Services
 
             var p = new Paragraph(isHighlighted ? new Bold(new Run(text)) : new Run(text))
             {
-                Margin = new Thickness(6, 3, 6, 3),
+                Margin = new Thickness(6, 4, 6, 4),
                 FontSize = 10.5,
                 Foreground = isHighlighted ? new SolidColorBrush(Color.FromRgb(113, 63, 18)) : new SolidColorBrush(Color.FromRgb(15, 23, 42))
             };
@@ -595,8 +632,9 @@ namespace TarazInvoice.Services
             var p = new Paragraph(isHeader || isBold ? new Bold(new Run(text)) : new Run(text))
             {
                 TextAlignment = align,
-                Margin = new Thickness(4, isHeader ? 6 : 4, 4, isHeader ? 6 : 4),
-                FontSize = isHeader ? 11 : 10.5
+                Margin = new Thickness(4, 7, 4, 7),
+                FontSize = isHeader ? 11 : 10.5,
+                LineHeight = 18
             };
             var cell = new TableCell(p)
             {
@@ -710,13 +748,78 @@ namespace TarazInvoice.Services
         public static string GetSafeInvoiceFileName(ProformaInvoice invoice, string extension = "pdf")
         {
             string num = !string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? invoice.InvoiceNumber.Trim() : "پیش‌فاکتور";
-            string comp = !string.IsNullOrWhiteSpace(invoice.CompanyName) ? invoice.CompanyName.Trim() : "مشتری";
-            string exp = !string.IsNullOrWhiteSpace(invoice.ExpertName) ? invoice.ExpertName.Trim() : "کارشناس";
-            string raw = $"{num} - {comp} - {exp}";
+            string comp = !string.IsNullOrWhiteSpace(invoice.CompanyName) ? invoice.CompanyName.Trim() : "";
+            string exp = !string.IsNullOrWhiteSpace(invoice.ExpertName) ? invoice.ExpertName.Trim() : "";
+
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(num)) parts.Add(num);
+            if (!string.IsNullOrWhiteSpace(comp)) parts.Add(comp);
+            if (!string.IsNullOrWhiteSpace(exp)) parts.Add(exp);
+
+            string raw = parts.Count > 0 ? string.Join(" - ", parts) : $"پیش‌فاکتور_{DateTime.Now:yyyyMMdd}";
             var invalidChars = Path.GetInvalidFileNameChars();
             string safe = string.Join(" ", raw.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+            char[] extraInvalid = new[] { ':', '*', '?', '"', '<', '>', '|', '/', '\\' };
+            safe = string.Join(" ", safe.Split(extraInvalid, StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+            while (safe.Contains("  ")) safe = safe.Replace("  ", " ");
             if (string.IsNullOrWhiteSpace(safe)) safe = $"پیش‌فاکتور_{invoice.InvoiceNumber}";
             return string.IsNullOrWhiteSpace(extension) ? safe : $"{safe}.{extension.TrimStart('.')}";
+        }
+
+        public void SaveInvoiceAsPdfFile(ProformaInvoice invoice, string targetPdfPath, AppSettings? overrideSettings = null)
+        {
+            var doc = CreateInvoiceFlowDocument(invoice, overrideSettings);
+            SaveFlowDocumentToPdfFile(doc, targetPdfPath);
+        }
+
+        public static void SaveFlowDocumentToPdfFile(FlowDocument doc, string targetPdfPath)
+        {
+            var paginator = ((IDocumentPaginatorSource)doc).DocumentPaginator;
+            paginator.PageSize = new Size(794, 1123);
+            paginator.ComputePageCount();
+
+            double scale = 2.0; // 192 DPI (1588x2246 px) برای شفافیت و کیفیت فوق‌العاده
+            int pixelWidth = (int)Math.Round(paginator.PageSize.Width * scale);
+            int pixelHeight = (int)Math.Round(paginator.PageSize.Height * scale);
+
+            using var pdfDoc = new PdfDocument();
+
+            for (int i = 0; i < paginator.PageCount; i++)
+            {
+                var page = paginator.GetPage(i);
+
+                var rtb = new RenderTargetBitmap(pixelWidth, pixelHeight, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+                var dv = new DrawingVisual();
+                using (var dc = dv.RenderOpen())
+                {
+                    dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, paginator.PageSize.Width, paginator.PageSize.Height));
+                }
+                rtb.Render(dv);
+                rtb.Render(page.Visual);
+
+                using var ms = new MemoryStream();
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(rtb));
+                encoder.Save(ms);
+                ms.Position = 0;
+
+                var pdfPage = pdfDoc.AddPage();
+                pdfPage.Size = PdfSharpCore.PageSize.A4;
+
+                using var xImg = XImage.FromStream(() => new MemoryStream(ms.ToArray()));
+                using var gfx = XGraphics.FromPdfPage(pdfPage);
+                gfx.DrawImage(xImg, 0, 0, pdfPage.Width, pdfPage.Height);
+            }
+
+            string? dir = Path.GetDirectoryName(targetPdfPath);
+            if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            pdfDoc.Save(targetPdfPath);
         }
 
         public void PrintOrExportToPdf(ProformaInvoice invoice)
@@ -732,33 +835,37 @@ namespace TarazInvoice.Services
             }
         }
 
-        public bool SaveInvoiceAsPdf(ProformaInvoice invoice)
+        public bool SaveInvoiceAsPdf(ProformaInvoice invoice, AppSettings? overrideSettings = null)
         {
-            var doc = CreateInvoiceFlowDocument(invoice);
-            var printDialog = new PrintDialog();
-            string docTitle = GetSafeInvoiceFileName(invoice, "");
-
             try
             {
-                var localPrintServer = new System.Printing.LocalPrintServer();
-                var pdfQueue = localPrintServer.GetPrintQueues()
-                    .FirstOrDefault(q => q.Name.Contains("PDF", StringComparison.OrdinalIgnoreCase));
-                if (pdfQueue != null)
+                var sfd = new Microsoft.Win32.SaveFileDialog
                 {
-                    printDialog.PrintQueue = pdfQueue;
-                    IDocumentPaginatorSource idpSource = doc;
-                    printDialog.PrintDocument(idpSource.DocumentPaginator, docTitle);
+                    Title = "ذخیره پیش‌فاکتور به صورت فایل PDF",
+                    Filter = "فایل‌های PDF (*.pdf)|*.pdf",
+                    FileName = GetSafeInvoiceFileName(invoice, "pdf"),
+                    DefaultExt = ".pdf",
+                    AddExtension = true
+                };
+
+                if (sfd.ShowDialog() == true)
+                {
+                    SaveInvoiceAsPdfFile(invoice, sfd.FileName, overrideSettings);
+                    try
+                    {
+                        var psi = new System.Diagnostics.ProcessStartInfo(sfd.FileName)
+                        {
+                            UseShellExecute = true
+                        };
+                        System.Diagnostics.Process.Start(psi);
+                    }
+                    catch { }
                     return true;
                 }
             }
-            catch { }
-
-            // اگر چاپگر PDF پیش‌فرض سیستم پیدا نشد، پنجره استاندارد انتخاب چاپگر باز می‌شود
-            if (printDialog.ShowDialog() == true)
+            catch (Exception ex)
             {
-                IDocumentPaginatorSource idpSource = doc;
-                printDialog.PrintDocument(idpSource.DocumentPaginator, docTitle);
-                return true;
+                MessageBox.Show($"خطا در ذخیره PDF:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             return false;
         }

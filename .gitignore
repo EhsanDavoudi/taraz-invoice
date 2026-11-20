@@ -29,6 +29,7 @@ coverage.json
 Data/*.json
 
 ## Local Tooling & Temporary Files
+.github/hooks/
 .impeccable/
 *.log
 *.tmp

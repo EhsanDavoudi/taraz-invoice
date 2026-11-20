@@ -116,7 +116,11 @@ namespace TarazInvoice.Services
                 }
 
                 worksheet.Cell(currentRow, colRow).Value = item.RowNumber;
-                worksheet.Cell(currentRow, colName).Value = item.ItemName;
+                var templateCellName = worksheet.Cell(currentRow, colName);
+                templateCellName.Value = item.ItemName;
+                templateCellName.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                templateCellName.Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
+                templateCellName.Style.Alignment.WrapText = true;
                 worksheet.Cell(currentRow, colQty).Value = (double)item.Quantity;
                 worksheet.Cell(currentRow, colPrice).Value = (double)item.FinalUnitPrice;
                 worksheet.Cell(currentRow, colTotal).Value = (double)item.TotalPrice;
@@ -154,6 +158,10 @@ namespace TarazInvoice.Services
             var ws = workbook.Worksheets.Add("پیش‌فاکتور");
             ws.RightToLeft = true; // راست‌چین
 
+            // تنظیم جهت و تراز پیش‌فرض ستون شرح کالا به صورت راست‌چین
+            ws.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            ws.Column(2).Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
+
             // تنظیم فونت و گزینه‌های صفحه
             string fontName = !string.IsNullOrWhiteSpace(settings.TableFontFamily) ? settings.TableFontFamily : "Vazirmatn";
             ws.Style.Font.FontName = fontName;
@@ -185,27 +193,16 @@ namespace TarazInvoice.Services
                     pic.WithSize(46, 46);
                 }
                 catch { }
+            }
 
-                ws.Range("B2:B3").Merge();
-                var sellerCell = ws.Cell("B2");
-                sellerCell.Value = settings.SellerName;
-                sellerCell.Style.Font.Bold = true;
-                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)Math.Min(settings.CompanyNameFontSize, 15) : 15;
-                sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
-                sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-            }
-            else
-            {
-                ws.Range("A2:B3").Merge();
-                var sellerCell = ws.Cell("A2");
-                sellerCell.Value = settings.SellerName;
-                sellerCell.Style.Font.Bold = true;
-                sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)Math.Min(settings.CompanyNameFontSize, 15) : 15;
-                sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
-                sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-            }
+            ws.Range("B2:B3").Merge();
+            var sellerCell = ws.Cell("B2");
+            sellerCell.Value = settings.SellerName;
+            sellerCell.Style.Font.Bold = true;
+            sellerCell.Style.Font.FontSize = (settings.CompanyNameFontSize > 0) ? (int)Math.Min(settings.CompanyNameFontSize, 15) : 15;
+            sellerCell.Style.Font.FontName = !string.IsNullOrWhiteSpace(settings.CompanyNameFontFamily) ? settings.CompanyNameFontFamily : fontName;
+            sellerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            sellerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
             // ب) بخش وسط: عنوان پیش فاکتور
             ws.Range("C2:D3").Merge();
@@ -259,7 +256,7 @@ namespace TarazInvoice.Services
 
             // ==================== ۳. جدول اقلام کالا با شکست ۲ یا ۳ خطی شرح ====================
             int tableHeaderRow = 9;
-            ws.Row(tableHeaderRow).Height = 26;
+            ws.Row(tableHeaderRow).Height = 32;
 
             ws.Cell(tableHeaderRow, 1).Value = "ردیف";
             ws.Cell(tableHeaderRow, 2).Value = "شرح کالا";
@@ -281,36 +278,64 @@ namespace TarazInvoice.Services
             {
                 var item = invoice.Items[i];
                 var row = ws.Row(rowIdx);
-                row.Height = 24;
 
-                ws.Cell(rowIdx, 1).Value = item.RowNumber;
-                ws.Cell(rowIdx, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                // محاسبه ارتفاع سطر: ۳۲ پیکسل برای یک خط، دو برابر (۶۴) برای دو خط و متناسب برای خطوط بیشتر
+                string itemNameStr = item.ItemName ?? "";
+                int charCount = itemNameStr.Length;
+                int explicitLines = itemNameStr.Split('\n').Length;
+                int wrapLines = (int)Math.Ceiling(Math.Max(1, charCount) / 48.0);
+                int estimatedLines = Math.Max(explicitLines, wrapLines);
 
-                var cellName = ws.Cell(rowIdx, 2);
-                cellName.Value = item.ItemName;
-                cellName.Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
-                cellName.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-                cellName.Style.Alignment.WrapText = true; // شکست خطوط کالا در ۲ یا ۳ خط
+                if (estimatedLines <= 1)
+                {
+                    row.Height = 32;
+                }
+                else if (estimatedLines == 2)
+                {
+                    row.Height = 64;
+                }
+                else
+                {
+                    row.Height = estimatedLines * 32;
+                }
 
-                ws.Cell(rowIdx, 3).Value = (double)item.Quantity;
-                ws.Cell(rowIdx, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-                ws.Cell(rowIdx, 4).Value = string.IsNullOrWhiteSpace(item.Unit) ? "عدد" : item.Unit;
-                ws.Cell(rowIdx, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-                ws.Cell(rowIdx, 5).Value = (double)item.FinalUnitPrice;
-                ws.Cell(rowIdx, 5).Style.NumberFormat.Format = "#,##0";
-                ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-                ws.Cell(rowIdx, 6).Value = (double)item.TotalPrice;
-                ws.Cell(rowIdx, 6).Style.NumberFormat.Format = "#,##0";
-                ws.Cell(rowIdx, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-                // خطوط دور جدول
+                // ۱. ابتدا خطوط کادر دور سطر و چینش عمودی ردیف اعمال می‌شود
                 var rowRange = ws.Range(rowIdx, 1, rowIdx, 6);
                 rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
                 rowRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                // ۲. ستون ردیف: وسط‌چین
+                ws.Cell(rowIdx, 1).Value = item.RowNumber;
+                ws.Cell(rowIdx, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(rowIdx, 1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                // ۳. ستون شرح کالا: اکیداً راست‌چین (RTL) و تراز به راست با پشتیبانی از شکست خطوط چندخطی
+                var cellName = ws.Cell(rowIdx, 2);
+                cellName.Value = itemNameStr;
+                cellName.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                cellName.Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
+                cellName.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                cellName.Style.Alignment.WrapText = true;
+
+                // ۴. سایر ستون‌های عددی و واحد: وسط‌چین
+                ws.Cell(rowIdx, 3).Value = (double)item.Quantity;
+                ws.Cell(rowIdx, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(rowIdx, 3).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                ws.Cell(rowIdx, 4).Value = string.IsNullOrWhiteSpace(item.Unit) ? "عدد" : item.Unit;
+                ws.Cell(rowIdx, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(rowIdx, 4).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                ws.Cell(rowIdx, 5).Value = (double)item.FinalUnitPrice;
+                ws.Cell(rowIdx, 5).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(rowIdx, 5).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+                ws.Cell(rowIdx, 6).Value = (double)item.TotalPrice;
+                ws.Cell(rowIdx, 6).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(rowIdx, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(rowIdx, 6).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
                 rowIdx++;
             }
@@ -354,10 +379,7 @@ namespace TarazInvoice.Services
             var sumRange2 = ws.Range(rowIdx, 5, rowIdx, 6);
             sumRange2.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
             sumRange2.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-            if (invoice.HighlightVat)
-            {
-                sumRange2.Style.Fill.BackgroundColor = XLColor.FromArgb(255, 255, 0); // هایلایت زرد
-            }
+            // هایلایت زرد از سطرهای مالی حذف شد تا مطابق نمونه سند رسمی و درخواست کاربر کاملاً شفاف و تمیز باشد
             rowIdx++;
 
             // سطر ۳: جمع کل با ارزش افزوده

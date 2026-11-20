@@ -114,13 +114,13 @@ namespace TarazInvoice.Services
             {
                 if (File.Exists(_filePath))
                 {
-                    for (int attempt = 0; attempt < 4; attempt++)
+                    for (int attempt = 0; attempt < 10; attempt++)
                     {
                         try
                         {
                             _lastWriteTimeUtc = File.GetLastWriteTimeUtc(_filePath);
                             _lastFileSize = new FileInfo(_filePath).Length;
-                            using var fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                            using var fs = new FileStream(_filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                             using var reader = new StreamReader(fs);
                             string json = reader.ReadToEnd();
                             
@@ -186,11 +186,11 @@ namespace TarazInvoice.Services
                 string json = JsonSerializer.Serialize(model, _jsonOptions);
                 string tempPath = _filePath + $".{Guid.NewGuid():N}.tmp";
 
-                for (int attempt = 0; attempt < 5; attempt++)
+                for (int attempt = 0; attempt < 15; attempt++)
                 {
                     try
                     {
-                        using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                        using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
                         using (var writer = new StreamWriter(fs))
                         {
                             writer.Write(json);
@@ -200,13 +200,13 @@ namespace TarazInvoice.Services
                     }
                     catch
                     {
-                        System.Threading.Thread.Sleep(50);
+                        System.Threading.Thread.Sleep(50 + (attempt * 10));
                     }
                 }
 
                 if (File.Exists(tempPath))
                 {
-                    for (int attempt = 0; attempt < 8; attempt++)
+                    for (int attempt = 0; attempt < 15; attempt++)
                     {
                         try
                         {
@@ -218,7 +218,7 @@ namespace TarazInvoice.Services
                         }
                         catch
                         {
-                            System.Threading.Thread.Sleep(60);
+                            System.Threading.Thread.Sleep(60 + (attempt * 15));
                         }
                     }
                 }
@@ -449,96 +449,136 @@ namespace TarazInvoice.Services
         // عملیات شرکت‌ها
         public void AddOrUpdateCompany(Company company)
         {
-            var existing = _data.Companies.FirstOrDefault(c => c.Id == company.Id);
-            if (existing != null)
+            lock (_lock)
             {
-                int index = _data.Companies.IndexOf(existing);
-                _data.Companies[index] = company;
+                CheckAndReloadIfDiskChanged();
+                var existing = _data.Companies.FirstOrDefault(c => c.Id == company.Id);
+                if (existing != null)
+                {
+                    int index = _data.Companies.IndexOf(existing);
+                    _data.Companies[index] = company;
+                }
+                else
+                {
+                    _data.Companies.Add(company);
+                }
+                SaveInternal(_data);
             }
-            else
-            {
-                _data.Companies.Add(company);
-            }
-            Save();
+            DataChanged?.Invoke();
         }
 
         public void DeleteCompany(Guid companyId)
         {
-            _data.Companies.RemoveAll(c => c.Id == companyId);
-            Save();
+            lock (_lock)
+            {
+                CheckAndReloadIfDiskChanged();
+                _data.Companies.RemoveAll(c => c.Id == companyId);
+                SaveInternal(_data);
+            }
+            DataChanged?.Invoke();
         }
 
         // عملیات کارشناسان
         public void AddOrUpdateExpert(Expert expert)
         {
-            var existing = _data.Experts.FirstOrDefault(e => e.Id == expert.Id);
-            if (existing != null)
+            lock (_lock)
             {
-                int index = _data.Experts.IndexOf(existing);
-                _data.Experts[index] = expert;
+                CheckAndReloadIfDiskChanged();
+                var existing = _data.Experts.FirstOrDefault(e => e.Id == expert.Id);
+                if (existing != null)
+                {
+                    int index = _data.Experts.IndexOf(existing);
+                    _data.Experts[index] = expert;
+                }
+                else
+                {
+                    _data.Experts.Add(expert);
+                }
+                SaveInternal(_data);
             }
-            else
-            {
-                _data.Experts.Add(expert);
-            }
-            Save();
+            DataChanged?.Invoke();
         }
 
         public void DeleteExpert(Guid expertId)
         {
-            _data.Experts.RemoveAll(e => e.Id == expertId);
-            Save();
+            lock (_lock)
+            {
+                CheckAndReloadIfDiskChanged();
+                _data.Experts.RemoveAll(e => e.Id == expertId);
+                SaveInternal(_data);
+            }
+            DataChanged?.Invoke();
         }
 
         // عملیات پیش‌فاکتورها
         public void AddOrUpdateInvoice(ProformaInvoice invoice)
         {
-            var existing = _data.Invoices.FirstOrDefault(i => i.Id == invoice.Id);
-            if (existing != null)
+            lock (_lock)
             {
-                int index = _data.Invoices.IndexOf(existing);
-                _data.Invoices[index] = invoice;
+                CheckAndReloadIfDiskChanged();
+                var existing = _data.Invoices.FirstOrDefault(i => i.Id == invoice.Id);
+                if (existing != null)
+                {
+                    int index = _data.Invoices.IndexOf(existing);
+                    _data.Invoices[index] = invoice;
+                }
+                else
+                {
+                    _data.Invoices.Add(invoice);
+                }
+                SaveInternal(_data);
             }
-            else
-            {
-                _data.Invoices.Add(invoice);
-            }
-            Save();
+            DataChanged?.Invoke();
         }
 
         public void DeleteInvoice(Guid invoiceId)
         {
-            _data.Invoices.RemoveAll(i => i.Id == invoiceId);
-            Save();
+            lock (_lock)
+            {
+                CheckAndReloadIfDiskChanged();
+                _data.Invoices.RemoveAll(i => i.Id == invoiceId);
+                SaveInternal(_data);
+            }
+            DataChanged?.Invoke();
         }
 
         // عملیات انبار و کالاها (Storage Items)
         public void AddOrUpdateStorageItem(StorageItem item)
         {
-            var existing = _data.StorageItems.FirstOrDefault(p => p.Id == item.Id);
-            if (existing != null)
+            lock (_lock)
             {
-                int index = _data.StorageItems.IndexOf(existing);
-                item.UpdatedAt = DateTime.Now;
-                _data.StorageItems[index] = item;
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(item.Code))
+                CheckAndReloadIfDiskChanged();
+                var existing = _data.StorageItems.FirstOrDefault(p => p.Id == item.Id);
+                if (existing != null)
                 {
-                    item.Code = $"PRD-{_data.StorageItems.Count + 101}";
+                    int index = _data.StorageItems.IndexOf(existing);
+                    item.UpdatedAt = DateTime.Now;
+                    _data.StorageItems[index] = item;
                 }
-                item.CreatedAt = DateTime.Now;
-                item.UpdatedAt = DateTime.Now;
-                _data.StorageItems.Add(item);
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(item.Code))
+                    {
+                        item.Code = $"PRD-{_data.StorageItems.Count + 101}";
+                    }
+                    item.CreatedAt = DateTime.Now;
+                    item.UpdatedAt = DateTime.Now;
+                    _data.StorageItems.Add(item);
+                }
+                SaveInternal(_data);
             }
-            Save();
+            DataChanged?.Invoke();
         }
 
         public void DeleteStorageItem(Guid itemId)
         {
-            _data.StorageItems.RemoveAll(p => p.Id == itemId);
-            Save();
+            lock (_lock)
+            {
+                CheckAndReloadIfDiskChanged();
+                _data.StorageItems.RemoveAll(p => p.Id == itemId);
+                SaveInternal(_data);
+            }
+            DataChanged?.Invoke();
         }
 
         public StorageItem EnsureStorageItemExists(string name, string unit, decimal defaultPrice, bool updatePriceIfDifferent = false)
