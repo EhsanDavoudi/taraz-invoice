@@ -28,6 +28,9 @@ coverage.json
 ## Application Local Data
 Data/*.json
 
+## Published Output and Installers
+publish/
+
 ## Local Tooling & Temporary Files
 .github/hooks/
 .impeccable/

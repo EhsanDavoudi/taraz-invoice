@@ -35,6 +35,9 @@ namespace TarazInvoice
         private ObservableCollection<BankAccountInfo> _editingBankAccounts = new ObservableCollection<BankAccountInfo>();
         private Wpf.Ui.Controls.TextBox? _currentGridTextBox = null;
         private InvoiceItem? _currentEditingInvoiceItem = null;
+        private bool _isApplyingGridSuggestion = false;
+        private bool _isGridItemUserTyping = false;
+        private string _gridItemLoadedText = string.Empty;
         private System.Windows.Threading.DispatcherTimer? _networkSyncTimer = null;
 
         // وضعیت فعلی شرکت و کارشناس در حال ویرایش
@@ -62,6 +65,7 @@ namespace TarazInvoice
 
             _storage = new StorageService();
             _storage.DataChanged += Storage_DataChanged;
+            _storage.ConnectionStatusChanged += Storage_ConnectionStatusChanged;
             _excelService = new ExcelExportService(_storage);
             _printService = new PrintPdfService(_storage);
 
@@ -107,6 +111,15 @@ namespace TarazInvoice
                 {
                     // خطا در خواندن همزمان نادیده گرفته می‌شود
                 }
+            });
+        }
+
+        private void Storage_ConnectionStatusChanged(bool connected, string message)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                UpdateDbStatusUI();
+                SetStatus(message);
             });
         }
 
@@ -210,7 +223,7 @@ namespace TarazInvoice
 
         private void UpdateWindowTitle()
         {
-            const string baseTitle = "تـراز (v0.2.0-beta) - سامانه جامع صدور و مدیریت پیش‌فاکتور";
+            const string baseTitle = "تـراز (نسخه ۱.۰.۰) - سامانه جامع صدور و مدیریت پیش‌فاکتور";
             if (_isDirty && ViewInvoiceEditor != null && ViewInvoiceEditor.Visibility == Visibility.Visible)
             {
                 Title = $"* {baseTitle} (ویرایش پیش‌فاکتور - تغییرات ذخیره‌نشده)";
@@ -242,6 +255,7 @@ namespace TarazInvoice
                     {
                         RefreshAll();
                     }
+                    UpdateDbStatusUI();
                 }
                 catch { }
             };
@@ -303,7 +317,29 @@ namespace TarazInvoice
 
         private void DgrInvoiceItems_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (PopupGridSuggestions != null && PopupGridSuggestions.IsOpen)
+            {
+                PopupGridSuggestions.IsOpen = false;
+            }
+
             var dep = (DependencyObject)e.OriginalSource;
+
+            // اگر کلیک روی تکست‌باکس در حال ویرایش، دکمه‌های جدول (حذف، کپی)، چک‌باکس یا اسکرول‌بار باشد، دخالت نمی‌کنیم
+            var walk = dep;
+            while (walk != null && walk is not DataGridCell && walk != DgrInvoiceItems)
+            {
+                if (walk is System.Windows.Controls.TextBox ||
+                    walk is Wpf.Ui.Controls.TextBox ||
+                    walk is System.Windows.Controls.Primitives.ButtonBase ||
+                    walk is Wpf.Ui.Controls.Button ||
+                    walk is CheckBox ||
+                    walk is System.Windows.Controls.Primitives.ScrollBar)
+                {
+                    return;
+                }
+                walk = VisualTreeHelper.GetParent(walk);
+            }
+
             while (dep != null && dep is not DataGridCell && dep is not System.Windows.Controls.Primitives.DataGridColumnHeader)
             {
                 dep = VisualTreeHelper.GetParent(dep);
@@ -311,11 +347,28 @@ namespace TarazInvoice
 
             if (dep is DataGridCell cell && !cell.IsEditing && !cell.IsReadOnly)
             {
-                if (!cell.IsFocused)
+                try
                 {
-                    cell.Focus();
+                    DgrInvoiceItems.CommitEdit(DataGridEditingUnit.Cell, true);
+                    DgrInvoiceItems.CommitEdit(DataGridEditingUnit.Row, true);
                 }
-                DgrInvoiceItems.BeginEdit();
+                catch { }
+
+                if (cell.DataContext is InvoiceItem item)
+                {
+                    DgrInvoiceItems.SelectedItem = item;
+                }
+                cell.Focus();
+                DgrInvoiceItems.CurrentCell = new DataGridCellInfo(cell);
+
+                // ورود به ویرایش سلول به شکل دیفر شده تا روتینگ ماوس و انتخاب سطر بدون گلیچ پایان یابد
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!cell.IsEditing && DgrInvoiceItems.CurrentCell.IsValid)
+                    {
+                        DgrInvoiceItems.BeginEdit();
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Input);
             }
         }
 
@@ -990,8 +1043,7 @@ namespace TarazInvoice
 
         private void DuplicateInvoice(ProformaInvoice sourceInvoice)
         {
-            var expert = _storage.GetExperts().FirstOrDefault(exp => exp.Id == sourceInvoice.ExpertId);
-            string newNumber = expert != null ? expert.GetPreviewNextInvoiceNumber() : $"INV-{DateTime.Now:mmss}";
+            string newNumber = _storage.PeekNextUniqueInvoiceNumber();
 
             var newInvoice = sourceInvoice.CloneForNew(newNumber);
             OpenInvoiceEditor(newInvoice, isNew: true);
@@ -1215,7 +1267,7 @@ namespace TarazInvoice
 
             var newInvoice = new ProformaInvoice
             {
-                InvoiceNumber = defaultExpert.GetPreviewNextInvoiceNumber(),
+                InvoiceNumber = _storage.PeekNextUniqueInvoiceNumber(),
                 IssueDateShamsi = JalaliDateHelper.GetCurrentShamsiDate(),
                 ValidUntilShamsi = JalaliDateHelper.GetShamsiDateAfterDays(7),
                 CompanyId = defaultCompany.Id,
@@ -1358,7 +1410,7 @@ namespace TarazInvoice
             decimal vatAmount = Math.Round(grandTotal * (vatPercent / 100m), 0);
             decimal grandTotalWithVat = grandTotal + vatAmount;
 
-            TxtSummaryRawTotal.Text = $"{rawTotal:N0} ریال";
+            TxtSummaryRawTotal.Text = $"{grandTotal:N0} ریال";
             TxtSummaryDiscountTotal.Text = $"{discountTotal:N0} ریال";
             TxtSummaryProfitTotal.Text = $"{profitTotal:N0} ریال";
             decimal profitPct = grandTotal > 0 ? Math.Round((profitTotal / grandTotal) * 100m, 1) : 0;
@@ -1429,15 +1481,21 @@ namespace TarazInvoice
         {
             if (CmbEditorExpert.SelectedItem is Expert expert)
             {
-                TxtExpertCounterHint.Text = $"(شماره بعدی: {expert.GetPreviewNextInvoiceNumber()})";
-                if (_isNewInvoice)
+                if (TxtExpertCounterHint != null)
                 {
-                    TxtEditorInvoiceNumber.Text = expert.GetPreviewNextInvoiceNumber();
+                    TxtExpertCounterHint.Text = "";
+                }
+                if (_isNewInvoice && string.IsNullOrWhiteSpace(TxtEditorInvoiceNumber?.Text))
+                {
+                    TxtEditorInvoiceNumber!.Text = _storage.PeekNextUniqueInvoiceNumber();
                 }
             }
             else
             {
-                TxtExpertCounterHint.Text = "";
+                if (TxtExpertCounterHint != null)
+                {
+                    TxtExpertCounterHint.Text = "";
+                }
             }
         }
 
@@ -1608,24 +1666,18 @@ namespace TarazInvoice
             _currentEditingInvoice.BankAccounts = _editingBankAccounts.ToList();
             _currentEditingInvoice.UpdatedAt = DateTime.Now;
 
-            if (_isNewInvoice)
+            // بررسی و تضمین یکتایی شماره پیش‌فاکتور (هیچ دو پیش‌فاکتوری شماره یکسان نخواهند داشت)
+            _storage.CheckAndReloadIfDiskChanged();
+            if (string.IsNullOrWhiteSpace(_currentEditingInvoice.InvoiceNumber) ||
+                _storage.IsInvoiceNumberInUse(_currentEditingInvoice.InvoiceNumber, _currentEditingInvoice.Id))
             {
-                // برای جلوگیری از تداخل شماره فاکتور هنگام استفاده همزمان چند کاربر روی شبکه
-                _storage.CheckAndReloadIfDiskChanged();
-                var freshExpert = _storage.GetExperts().FirstOrDefault(e => e.Id == expert.Id) ?? expert;
-
-                if (_storage.GetInvoices().Any(inv => inv.InvoiceNumber == _currentEditingInvoice.InvoiceNumber && inv.Id != _currentEditingInvoice.Id))
-                {
-                    string newNum = freshExpert.GetPreviewNextInvoiceNumber();
-                    _currentEditingInvoice.InvoiceNumber = newNum;
-                    if (TxtEditorInvoiceNumber != null) TxtEditorInvoiceNumber.Text = newNum;
-                }
-
-                if (_currentEditingInvoice.InvoiceNumber == freshExpert.GetPreviewNextInvoiceNumber())
-                {
-                    freshExpert.ConsumeNextInvoiceNumber();
-                    _storage.AddOrUpdateExpert(freshExpert);
-                }
+                string uniqueNum = _storage.GenerateNextUniqueInvoiceNumber();
+                _currentEditingInvoice.InvoiceNumber = uniqueNum;
+                if (TxtEditorInvoiceNumber != null) TxtEditorInvoiceNumber.Text = uniqueNum;
+            }
+            else if (_isNewInvoice)
+            {
+                _storage.RegisterUsedInvoiceNumber(_currentEditingInvoice.InvoiceNumber);
             }
 
             // ثبت خودکار اقلام در انبار در صورتی که قبلاً ثبت نشده باشند
@@ -1700,6 +1752,21 @@ namespace TarazInvoice
                 _currentEditingInvoice.Items = _editingItems.ToList();
                 _currentEditingInvoice.BankAccounts = _editingBankAccounts.ToList();
                 _currentEditingInvoice.UpdatedAt = DateTime.Now;
+
+                if (_isNewInvoice)
+                {
+                    if (string.IsNullOrWhiteSpace(_currentEditingInvoice.InvoiceNumber) ||
+                        _storage.IsInvoiceNumberInUse(_currentEditingInvoice.InvoiceNumber, _currentEditingInvoice.Id))
+                    {
+                        _currentEditingInvoice.InvoiceNumber = _storage.GenerateNextUniqueInvoiceNumber();
+                        if (TxtEditorInvoiceNumber != null) TxtEditorInvoiceNumber.Text = _currentEditingInvoice.InvoiceNumber;
+                    }
+                    else
+                    {
+                        _storage.RegisterUsedInvoiceNumber(_currentEditingInvoice.InvoiceNumber);
+                    }
+                    _isNewInvoice = false;
+                }
 
                 _storage.AddOrUpdateInvoice(_currentEditingInvoice);
                 SetDirty(false);
@@ -1831,17 +1898,32 @@ namespace TarazInvoice
             _currentGridTextBox = sender as Wpf.Ui.Controls.TextBox;
             if (_currentGridTextBox != null)
             {
+                _currentGridTextBox.FlowDirection = FlowDirection.RightToLeft;
+                _currentGridTextBox.TextAlignment = TextAlignment.Left;
                 if (_currentGridTextBox.DataContext is InvoiceItem ii)
                 {
                     _currentEditingInvoiceItem = ii;
+                    _gridItemLoadedText = ii.ItemName ?? "";
                 }
+                else
+                {
+                    _gridItemLoadedText = _currentGridTextBox.Text ?? "";
+                }
+                _isGridItemUserTyping = false;
                 _currentGridTextBox.Focus();
                 _currentGridTextBox.SelectAll();
             }
         }
 
+        private void TxtGridItemName_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            _isGridItemUserTyping = true;
+        }
+
         private void TxtGridItemName_TextChanged(object sender, TextChangedEventArgs e)
         {
+            if (_isApplyingGridSuggestion) return;
+
             if (sender is Wpf.Ui.Controls.TextBox tb)
             {
                 _currentGridTextBox = tb;
@@ -1849,58 +1931,129 @@ namespace TarazInvoice
                 {
                     _currentEditingInvoiceItem = ii;
                 }
-                string q = tb.Text?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(q))
+
+                // در زمان لود اولیه سلول و پیش از فوکوس یا تعامل، پاپ‌آپ باز نمی‌شود
+                if (!tb.IsKeyboardFocusWithin && !_isGridItemUserTyping && tb.Text == _gridItemLoadedText)
                 {
                     if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
                     return;
                 }
 
-                var matching = _storage.GetStorageItems()
+                ShowGridSuggestions(tb, tb.Text);
+            }
+        }
+
+        private void ShowGridSuggestions(Wpf.Ui.Controls.TextBox tb, string? query)
+        {
+            if (PopupGridSuggestions == null || LstGridSuggestions == null) return;
+
+            var allItems = _storage.GetStorageItems();
+            if (allItems == null || allItems.Count == 0)
+            {
+                PopupGridSuggestions.IsOpen = false;
+                return;
+            }
+
+            string q = query?.Trim() ?? "";
+            List<StorageItem> matching;
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                matching = allItems.Take(30).ToList();
+            }
+            else
+            {
+                matching = allItems
                     .Where(x => (!string.IsNullOrEmpty(x.Name) && x.Name.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
                                 (!string.IsNullOrEmpty(x.Code) && x.Code.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
                                 (!string.IsNullOrEmpty(x.Category) && x.Category.Contains(q, StringComparison.OrdinalIgnoreCase)))
-                    .Take(25)
+                    .Take(30)
                     .ToList();
+            }
 
-                if (matching.Any() && PopupGridSuggestions != null && LstGridSuggestions != null)
-                {
-                    LstGridSuggestions.ItemsSource = matching;
-                    PopupGridSuggestions.PlacementTarget = tb;
-                    PopupGridSuggestions.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-                    PopupGridSuggestions.IsOpen = true;
-                }
-                else
-                {
-                    if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
-                }
+            if (matching.Any())
+            {
+                LstGridSuggestions.ItemsSource = matching;
+                LstGridSuggestions.SelectedIndex = -1;
+                PopupGridSuggestions.PlacementTarget = tb;
+                PopupGridSuggestions.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                PopupGridSuggestions.IsOpen = true;
+            }
+            else
+            {
+                PopupGridSuggestions.IsOpen = false;
             }
         }
 
         private void TxtGridItemName_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (PopupGridSuggestions != null && PopupGridSuggestions.IsOpen)
+            if (e.Key == Key.Back || e.Key == Key.Delete || e.Key == Key.Space)
+            {
+                _isGridItemUserTyping = true;
+            }
+
+            if (PopupGridSuggestions != null && PopupGridSuggestions.IsOpen && LstGridSuggestions != null)
             {
                 if (e.Key == Key.Down)
                 {
-                    LstGridSuggestions?.Focus();
-                    if (LstGridSuggestions != null && LstGridSuggestions.Items.Count > 0)
+                    if (LstGridSuggestions.Items.Count > 0)
                     {
-                        LstGridSuggestions.SelectedIndex = 0;
+                        int next = LstGridSuggestions.SelectedIndex + 1;
+                        if (next >= LstGridSuggestions.Items.Count) next = 0;
+                        LstGridSuggestions.SelectedIndex = next;
+                        LstGridSuggestions.ScrollIntoView(LstGridSuggestions.SelectedItem);
                     }
                     e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Up)
+                {
+                    if (LstGridSuggestions.Items.Count > 0)
+                    {
+                        int prev = LstGridSuggestions.SelectedIndex - 1;
+                        if (prev < 0) prev = LstGridSuggestions.Items.Count - 1;
+                        LstGridSuggestions.SelectedIndex = prev;
+                        LstGridSuggestions.ScrollIntoView(LstGridSuggestions.SelectedItem);
+                    }
+                    e.Handled = true;
+                    return;
                 }
                 else if (e.Key == Key.Enter)
                 {
-                    if (LstGridSuggestions?.SelectedItem is StorageItem item)
+                    if (LstGridSuggestions.SelectedItem is StorageItem item)
                     {
                         ApplyGridSuggestion(item);
                         e.Handled = true;
+                        return;
+                    }
+                    else
+                    {
+                        PopupGridSuggestions.IsOpen = false;
                     }
                 }
                 else if (e.Key == Key.Escape)
                 {
                     PopupGridSuggestions.IsOpen = false;
+                    e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Tab)
+                {
+                    if (LstGridSuggestions.SelectedItem is StorageItem item)
+                    {
+                        ApplyGridSuggestion(item);
+                    }
+                    else
+                    {
+                        PopupGridSuggestions.IsOpen = false;
+                    }
+                }
+            }
+            else if (e.Key == Key.Down && (PopupGridSuggestions == null || !PopupGridSuggestions.IsOpen))
+            {
+                if (sender is Wpf.Ui.Controls.TextBox tb && !string.IsNullOrWhiteSpace(tb.Text))
+                {
+                    _isGridItemUserTyping = true;
+                    TxtGridItemName_TextChanged(tb, null!);
                     e.Handled = true;
                 }
             }
@@ -1915,25 +2068,11 @@ namespace TarazInvoice
             }
             if (dep is ListBoxItem lbi && lbi.DataContext is StorageItem item)
             {
-                ApplyGridSuggestion(item);
                 e.Handled = true;
-            }
-        }
-
-        private void LstGridSuggestions_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            if (LstGridSuggestions?.SelectedItem is StorageItem item)
-            {
-                ApplyGridSuggestion(item);
-                e.Handled = true;
-            }
-        }
-
-        private void LstGridSuggestions_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (LstGridSuggestions?.SelectedItem is StorageItem item)
-            {
-                ApplyGridSuggestion(item);
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ApplyGridSuggestion(item);
+                }), System.Windows.Threading.DispatcherPriority.Input);
             }
         }
 
@@ -1973,20 +2112,28 @@ namespace TarazInvoice
                 SetDirty(true);
             }
 
-            if (_currentGridTextBox != null)
-            {
-                _currentGridTextBox.Text = item.Name;
-            }
-
-            if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
-            if (LstGridSuggestions != null) LstGridSuggestions.SelectedItem = null;
-
+            _isApplyingGridSuggestion = true;
             try
             {
-                DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Row, true);
-                DgrInvoiceItems?.Items.Refresh();
+                if (_currentGridTextBox != null)
+                {
+                    _currentGridTextBox.Text = item.Name;
+                }
+
+                if (PopupGridSuggestions != null) PopupGridSuggestions.IsOpen = false;
+                if (LstGridSuggestions != null) LstGridSuggestions.SelectedItem = null;
+
+                try
+                {
+                    DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Cell, true);
+                    DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Row, true);
+                }
+                catch { }
             }
-            catch { }
+            finally
+            {
+                _isApplyingGridSuggestion = false;
+            }
         }
 
         #endregion
@@ -2130,18 +2277,21 @@ namespace TarazInvoice
         private void TxtQuickItemName_TextChanged(object sender, TextChangedEventArgs e)
         {
             string q = TxtQuickItemName.Text?.Trim() ?? "";
-            if (string.IsNullOrEmpty(q))
+            var allItems = _storage.GetStorageItems();
+            List<StorageItem> matching;
+            if (string.IsNullOrWhiteSpace(q))
             {
-                PopupQuickSuggestions.IsOpen = false;
-                return;
+                matching = allItems.Take(30).ToList();
             }
-
-            var matching = _storage.GetStorageItems()
-                .Where(x => (!string.IsNullOrEmpty(x.Name) && x.Name.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
-                            (!string.IsNullOrEmpty(x.Code) && x.Code.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
-                            (!string.IsNullOrEmpty(x.Category) && x.Category.Contains(q, StringComparison.OrdinalIgnoreCase)))
-                .Take(25)
-                .ToList();
+            else
+            {
+                matching = allItems
+                    .Where(x => (!string.IsNullOrEmpty(x.Name) && x.Name.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrEmpty(x.Code) && x.Code.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                                (!string.IsNullOrEmpty(x.Category) && x.Category.Contains(q, StringComparison.OrdinalIgnoreCase)))
+                    .Take(30)
+                    .ToList();
+            }
 
             if (matching.Any())
             {
@@ -2957,11 +3107,27 @@ namespace TarazInvoice
                 if (TxtDefaultValidityText != null) TxtDefaultValidityText.Text = !string.IsNullOrEmpty(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.";
                 if (CmbSettingsCurrencyUnit != null) CmbSettingsCurrencyUnit.SelectedIndex = 0;
 
+                // تنظیمات پیشوند و شمارنده شماره پیش‌فاکتور
+                if (TxtSettingsInvoicePrefix != null)
+                {
+                    TxtSettingsInvoicePrefix.Text = !string.IsNullOrWhiteSpace(settings.InvoicePrefix) ? settings.InvoicePrefix : "ANA 405-";
+                }
+                if (TxtSettingsNextInvoiceNumber != null)
+                {
+                    TxtSettingsNextInvoiceNumber.Text = (settings.NextInvoiceNumber > 0 ? settings.NextInvoiceNumber : 1001).ToString();
+                }
+
                 if (DgrBankAccounts != null)
                 {
                     _settingsBankAccounts = new ObservableCollection<BankAccountInfo>(settings.BankAccounts ?? new List<BankAccountInfo>());
                     DgrBankAccounts.ItemsSource = _settingsBankAccounts;
                 }
+
+                if (TxtDatabaseDirectory != null)
+                {
+                    TxtDatabaseDirectory.Text = _storage.PrimaryDatabaseDirectory ?? "";
+                }
+                UpdateDbStatusUI();
             }
             finally
             {
@@ -3023,10 +3189,36 @@ namespace TarazInvoice
             settings.SellerEconomicCode = TxtSellerEcoCode.Text?.Trim() ?? "";
             settings.SellerPhone = TxtSellerPhone.Text?.Trim() ?? "";
             settings.SellerAddress = TxtSellerAddress.Text?.Trim() ?? "";
+            SaveInvoiceNumberingSettings();
             _storage.Save();
 
             SetStatus("مشخصات فروشنده با موفقیت ذخیره شد.");
             MessageBox.Show("مشخصات شرکت فروشنده با موفقیت ذخیره شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void BtnSaveInvoiceNumberingSettings_Click(object sender, RoutedEventArgs e)
+        {
+            SaveInvoiceNumberingSettings();
+            _storage.Save();
+            SetStatus("تنظیمات پیشوند و شماره‌گذاری پیش‌فاکتور با موفقیت ذخیره شد.");
+            MessageBox.Show("تنظیمات پیشوند و شماره پیش‌فاکتور با موفقیت ذخیره شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void SaveInvoiceNumberingSettings()
+        {
+            var settings = _storage.GetSettings();
+            if (TxtSettingsInvoicePrefix != null)
+            {
+                settings.InvoicePrefix = TxtSettingsInvoicePrefix.Text?.Trim() ?? "ANA 405-";
+            }
+            if (TxtSettingsNextInvoiceNumber != null)
+            {
+                string norm = StorageService.NormalizeDigits(TxtSettingsNextInvoiceNumber.Text);
+                if (int.TryParse(norm, out int nextNum) && nextNum > 0)
+                {
+                    settings.NextInvoiceNumber = nextNum;
+                }
+            }
         }
 
         private void BtnBackup_Click(object sender, RoutedEventArgs e)
@@ -3083,6 +3275,165 @@ namespace TarazInvoice
                         MessageBox.Show($"خطا در بازیابی اطلاعات:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
+            }
+        }
+
+        private void UpdateDbStatusUI()
+        {
+            try
+            {
+                if (TxtDbCardStatus == null) return;
+
+                string localPath = _storage.LocalDatabasePath;
+                if (TxtDbSecondaryPath != null)
+                {
+                    TxtDbSecondaryPath.Text = $"مسیر دیتابیس ثانویه (پشتیبان محلی در پوشه اصلی): {localPath}";
+                }
+
+                if (!_storage.IsCustomDirectoryConfigured)
+                {
+                    TxtDbCardStatus.Text = "پایگاه‌داده محلی پیش‌فرض برنامه فعال است (تک‌کاربره).";
+                    if (IcoDbCardStatus != null)
+                    {
+                        IcoDbCardStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle20;
+                        IcoDbCardStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                    }
+                    if (TxtDbStatusBottom != null)
+                    {
+                        TxtDbStatusBottom.Text = "پایگاه‌داده: محلی پیش‌فرض";
+                    }
+                    if (IcoDbStatus != null)
+                    {
+                        IcoDbStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Database20;
+                        IcoDbStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                    }
+                }
+                else if (_storage.IsNetworkConnected)
+                {
+                    TxtDbCardStatus.Text = $"متصل به پوشه شبکه/اصلی ({_storage.PrimaryDatabaseDirectory}) - دیتابیس ثانویه محلی آماده و فعال.";
+                    if (IcoDbCardStatus != null)
+                    {
+                        IcoDbCardStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle20;
+                        IcoDbCardStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                    }
+                    if (TxtDbStatusBottom != null)
+                    {
+                        TxtDbStatusBottom.Text = "پایگاه‌داده: متصل به شبکه (همگام با محلی)";
+                    }
+                    if (IcoDbStatus != null)
+                    {
+                        IcoDbStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Database20;
+                        IcoDbStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                    }
+                }
+                else
+                {
+                    TxtDbCardStatus.Text = $"عدم دسترسی به پوشه شبکه ({_storage.PrimaryDatabaseDirectory}) - در حال کار با دیتابیس ثانویه محلی (تغییرات بدون وقفه ذخیره شده و پس از اتصال ادغام می‌شوند).";
+                    if (IcoDbCardStatus != null)
+                    {
+                        IcoDbCardStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Warning20;
+                        IcoDbCardStatus.Foreground = (Brush)FindResource("WarningBrush");
+                    }
+                    if (TxtDbStatusBottom != null)
+                    {
+                        TxtDbStatusBottom.Text = "پایگاه‌داده: آفلاین (ذخیره در دیتابیس ثانویه)";
+                    }
+                    if (IcoDbStatus != null)
+                    {
+                        IcoDbStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Warning20;
+                        IcoDbStatus.Foreground = (Brush)FindResource("WarningBrush");
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void BtnBrowseDatabaseDir_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dialog = new Microsoft.Win32.OpenFolderDialog
+                {
+                    Title = "انتخاب پوشه پایگاه‌داده (محلی یا پوشه اشتراکی شبکه)",
+                    Multiselect = false
+                };
+                if (!string.IsNullOrWhiteSpace(TxtDatabaseDirectory?.Text) && Directory.Exists(TxtDatabaseDirectory.Text))
+                {
+                    dialog.InitialDirectory = TxtDatabaseDirectory.Text;
+                }
+                if (dialog.ShowDialog() == true)
+                {
+                    if (TxtDatabaseDirectory != null)
+                    {
+                        TxtDatabaseDirectory.Text = dialog.FolderName;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"خطا در باز کردن دیالوگ انتخاب پوشه:\n{ex.Message}", "خطا", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnSaveDatabaseDir_Click(object sender, RoutedEventArgs e)
+        {
+            string path = TxtDatabaseDirectory?.Text?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                _storage.ResetToDefaultDatabaseDirectory();
+                UpdateDbStatusUI();
+                SetStatus("پایگاه‌داده به پوشه پیش‌فرض برنامه بازگردانده شد.");
+                RefreshAll();
+                MessageBox.Show("مسیر پایگاه‌داده به پوشه پیش‌فرض برنامه (Data/database.json) بازگردانده شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            bool success = _storage.SetCustomDatabaseDirectory(path, out string errMsg);
+            UpdateDbStatusUI();
+            if (success)
+            {
+                SetStatus("پوشه پایگاه‌داده با موفقیت تنظیم و همگام‌سازی شد.");
+                RefreshAll();
+                MessageBox.Show("پوشه پایگاه‌داده با موفقیت تنظیم شد و اطلاعات با پایگاه‌داده ثانویه محلی ادغام و همگام‌سازی گردیدند.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show(errMsg, "خطا در تنظیم پوشه", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnSyncDatabaseNow_Click(object sender, RoutedEventArgs e)
+        {
+            bool success = _storage.SyncNow(out string msg);
+            UpdateDbStatusUI();
+            RefreshAll();
+            SetStatus(msg);
+            if (success)
+            {
+                MessageBox.Show(msg, "همگام‌سازی موفق", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show(msg, "وضعیت اتصال", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void BtnResetDefaultDatabaseDir_Click(object sender, RoutedEventArgs e)
+        {
+            var confirm = MessageBox.Show(
+                "آیا مایلید مسیر پایگاه‌داده به پوشه پیش‌فرض برنامه بازگردد؟\n\nکلیه داده‌های شما در پایگاه‌داده ثانویه محلی محفوظ است.",
+                "تأیید بازگشت به پیش‌فرض",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirm == MessageBoxResult.Yes)
+            {
+                _storage.ResetToDefaultDatabaseDirectory();
+                if (TxtDatabaseDirectory != null) TxtDatabaseDirectory.Text = "";
+                UpdateDbStatusUI();
+                RefreshAll();
+                SetStatus("پایگاه‌داده به پوشه پیش‌فرض برنامه بازگردانده شد.");
+                MessageBox.Show("پایگاه‌داده با موفقیت به پوشه پیش‌فرض برنامه بازگردانده شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -3222,6 +3573,7 @@ namespace TarazInvoice
                 settings.VatPercent = vat;
             }
 
+            SaveInvoiceNumberingSettings();
             _storage.Save();
             RefreshAll();
             SetStatus("تنظیمات سربرگ، تصویر، مهر و فونت‌ها با موفقیت ذخیره شد.");
@@ -3339,7 +3691,11 @@ namespace TarazInvoice
 
         private void SetStatus(string message)
         {
-            TxtStatusMessage.Text = $"[{DateTime.Now:HH:mm:ss}] {message}";
+            if (TxtStatusMessage != null)
+            {
+                TxtStatusMessage.Text = $"[{DateTime.Now:HH:mm:ss}] {message}";
+                if (TxtStatusSeparator != null) TxtStatusSeparator.Visibility = Visibility.Visible;
+            }
         }
     }
 }

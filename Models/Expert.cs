@@ -26,6 +26,7 @@ namespace TarazInvoice.Models
         public int NextInvoiceNumber { get; set; } = 1001;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         [System.Text.Json.Serialization.JsonIgnore]
         public string AssignedCompaniesDisplay

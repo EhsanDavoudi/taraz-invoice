@@ -896,7 +896,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                                     <TextBlock Text="انتخاب یا جستجوی کالا از انبار (کالا یا شرح را بنویسید):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                                     <Grid>
-                                                        <ui:TextBox x:Name="TxtQuickItemName" FlowDirection="RightToLeft" TextAlignment="Right" HorizontalContentAlignment="Right" PlaceholderText="نام کالا را بنویسید..." TextChanged="TxtQuickItemName_TextChanged"/>
+                                                        <ui:TextBox x:Name="TxtQuickItemName" FlowDirection="RightToLeft" TextAlignment="Left" PlaceholderText="نام کالا را بنویسید..." TextChanged="TxtQuickItemName_TextChanged"/>
                                                         <Popup x:Name="PopupQuickSuggestions" PlacementTarget="{Binding ElementName=TxtQuickItemName}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
                                                             <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" MaxHeight="280" MinWidth="460" Margin="0,4,0,0">
                                                                 <Border.Effect>
@@ -914,7 +914,7 @@
                                                                                         <ColumnDefinition Width="Auto"/>
                                                                                     </Grid.ColumnDefinitions>
                                                                                     <StackPanel Grid.Column="0" VerticalAlignment="Center" FlowDirection="RightToLeft">
-                                                                                        <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
+                                                                                        <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Left" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
                                                                                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                                                             <TextBlock Text="{Binding Code, StringFormat='کد: {0}'}" FontSize="10.5" Foreground="#64748B" Margin="0,0,10,0"/>
                                                                                             <TextBlock Text="{Binding Category, StringFormat='دسته: {0}'}" FontSize="10.5" Foreground="#94A3B8"/>
@@ -1010,16 +1010,40 @@
 
                                         <!-- پاپ‌آپ پیشنهادات جستجوی انبار در جدول اقلام -->
                                         <Popup x:Name="PopupGridSuggestions" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide">
-                                            <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" MaxHeight="260" Width="400" Padding="4">
+                                            <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" MaxHeight="260" Width="400" Padding="4" FlowDirection="RightToLeft">
                                                 <Border.Effect>
                                                     <DropShadowEffect BlurRadius="12" Opacity="0.15" ShadowDepth="4" Direction="270"/>
                                                 </Border.Effect>
                                                 <ListBox x:Name="LstGridSuggestions" BorderThickness="0" Background="Transparent"
                                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                                          PreviewMouseLeftButtonDown="LstGridSuggestions_PreviewMouseLeftButtonDown"
-                                                         PreviewMouseLeftButtonUp="LstGridSuggestions_PreviewMouseLeftButtonUp"
-                                                         SelectionChanged="LstGridSuggestions_SelectionChanged"
                                                          KeyDown="LstGridSuggestions_KeyDown">
+                                                    <ListBox.ItemContainerStyle>
+                                                        <Style TargetType="ListBoxItem">
+                                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                            <Setter Property="Padding" Value="0"/>
+                                                            <Setter Property="Margin" Value="0,1"/>
+                                                            <Setter Property="BorderThickness" Value="0"/>
+                                                            <Setter Property="Cursor" Value="Hand"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                                        <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="6,4" SnapsToDevicePixels="True">
+                                                                            <ContentPresenter/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="#F1F5F9"/>
+                                                                            </Trigger>
+                                                                            <Trigger Property="IsSelected" Value="True">
+                                                                                <Setter TargetName="Bd" Property="Background" Value="#E0F2FE"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </ListBox.ItemContainerStyle>
                                                     <ListBox.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border Padding="8,6" Margin="0,1" CornerRadius="6" Background="Transparent">
@@ -1029,7 +1053,7 @@
                                                                         <ColumnDefinition Width="Auto"/>
                                                                     </Grid.ColumnDefinitions>
                                                                     <StackPanel Grid.Column="0" FlowDirection="RightToLeft">
-                                                                        <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
+                                                                        <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Left" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
                                                                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                                                             <TextBlock Text="{Binding Code, StringFormat='کد: {0}'}" FontSize="10.5" Foreground="#64748B" Margin="0,0,12,0"/>
                                                                             <TextBlock Text="{Binding Category, StringFormat='دسته: {0}'}" FontSize="10.5" Foreground="#64748B"/>
@@ -1048,7 +1072,8 @@
                                         </Popup>
 
                                         <DataGrid x:Name="DgrInvoiceItems" AutoGenerateColumns="False" CanUserAddRows="False" 
-                                                  SelectionMode="Extended" SelectionUnit="CellOrRowHeader" MinRowHeight="44"
+                                                  SelectionMode="Extended" SelectionUnit="FullRow" MinRowHeight="44"
+                                                  FlowDirection="RightToLeft"
                                                   PreviewMouseLeftButtonUp="DataGrid_PreviewMouseLeftButtonUp"
                                                   MinHeight="180" MaxHeight="450" VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Auto">
@@ -1057,14 +1082,26 @@
                                                 <DataGridTextColumn Header="ردیف" Binding="{Binding RowNumber}" Width="0.5*" MinWidth="42" IsReadOnly="True"/>
                                                 
                                                 <!-- ستون محصول (نام کالا یا خدمات) با جستجوی هوشمند در انبار -->
-                                                <DataGridTemplateColumn Header="محصول (شرح کالا یا خدمات) *" Width="2.8*" MinWidth="180">
+                                                <DataGridTemplateColumn Width="2.8*" MinWidth="180">
+                                                    <DataGridTemplateColumn.HeaderTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="محصول (شرح کالا یا خدمات) *" FlowDirection="RightToLeft" TextAlignment="Left" FontWeight="Bold" HorizontalAlignment="Stretch"/>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.HeaderTemplate>
+                                                    <DataGridTemplateColumn.CellStyle>
+                                                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                            <Setter Property="FlowDirection" Value="RightToLeft"/>
+                                                            <Setter Property="TextBlock.TextAlignment" Value="Left"/>
+                                                        </Style>
+                                                    </DataGridTemplateColumn.CellStyle>
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam" FlowDirection="RightToLeft" VerticalAlignment="Stretch">
+                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="2" Cursor="IBeam" FlowDirection="RightToLeft" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                                                 <TextBlock Text="{Binding ItemName}" 
                                                                            FlowDirection="RightToLeft"
                                                                            VerticalAlignment="Center" HorizontalAlignment="Stretch" 
-                                                                           TextAlignment="Right" TextWrapping="Wrap" 
+                                                                           TextAlignment="Left" TextWrapping="Wrap" 
                                                                            FontSize="12.5" FontWeight="SemiBold" 
                                                                            Foreground="{StaticResource TextPrimaryBrush}"/>
                                                             </Border>
@@ -1072,18 +1109,20 @@
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <Grid VerticalAlignment="Center" Margin="1">
+                                                            <Grid VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="1" FlowDirection="RightToLeft">
                                                                 <ui:TextBox x:Name="TxtGridItemName"
                                                                             Text="{Binding ItemName, UpdateSourceTrigger=PropertyChanged}" 
                                                                             FlowDirection="RightToLeft"
-                                                                            TextAlignment="Right"
+                                                                            TextAlignment="Left"
+                                                                            HorizontalAlignment="Stretch"
                                                                             PlaceholderText="نام کالا یا جستجو در انبار..."
                                                                             FontSize="12.5" FontWeight="SemiBold"
-                                                                            MinHeight="36" Height="Auto" TextWrapping="Wrap" Padding="6,2"
-                                                                            VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                                                            MinHeight="36" Height="Auto" TextWrapping="Wrap" Padding="8,2"
+                                                                            VerticalAlignment="Center"
                                                                             Loaded="TxtGridItemName_Loaded"
                                                                             TextChanged="TxtGridItemName_TextChanged"
-                                                                            PreviewKeyDown="TxtGridItemName_PreviewKeyDown"/>
+                                                                            PreviewKeyDown="TxtGridItemName_PreviewKeyDown"
+                                                                            PreviewTextInput="TxtGridItemName_PreviewTextInput"/>
                                                             </Grid>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
@@ -1279,11 +1318,11 @@
                                         <ColumnDefinition Width="1.4*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- جمع ناخالص -->
+                                    <!-- جمع کل قبل از ارزش افزوده -->
                                     <Border Grid.Column="0" Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,0,8,0">
                                         <StackPanel>
-                                            <TextBlock Text="مجموع قیمت خام ناخالص:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
-                                            <TextBlock x:Name="TxtSummaryRawTotal" Text="0 ریال" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0"/>
+                                            <TextBlock Text="جمع کل (قبل از ارزش افزوده):" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextMutedBrush}"/>
+                                            <TextBlock x:Name="TxtSummaryRawTotal" Text="0 ریال" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Border>
 
@@ -1635,7 +1674,7 @@
                                         <DataGridTemplateColumn Header="نام کالا / شرح قطعه" Width="2.8*" MinWidth="180">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" HorizontalAlignment="Stretch" TextWrapping="Wrap" Margin="8,6" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Left" HorizontalAlignment="Stretch" TextWrapping="Wrap" Margin="8,6" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -1670,7 +1709,7 @@
                                         <ui:TextBox x:Name="TxtStorageCode" PlaceholderText="PRD-101" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="نام کالا یا قطعه *:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                        <ui:TextBox x:Name="TxtStorageName" FlowDirection="RightToLeft" TextAlignment="Right" PlaceholderText="نام کامل کالا را وارد کنید..." TextWrapping="Wrap" Height="50" Margin="0,0,0,8"/>
+                                        <ui:TextBox x:Name="TxtStorageName" FlowDirection="RightToLeft" TextAlignment="Left" PlaceholderText="نام کامل کالا را وارد کنید..." TextWrapping="Wrap" Height="50" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="واحد کالا:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                         <ComboBox x:Name="CmbStorageUnit" Height="36" HorizontalAlignment="Stretch" IsEditable="True" Margin="0,0,0,8"/>
@@ -1682,7 +1721,7 @@
                                         <ui:TextBox x:Name="TxtStorageCategory" PlaceholderText="مثلاً: ابزار دقیق، قطعات برق..." Margin="0,0,0,8"/>
 
                                         <TextBlock Text="توضیحات تکمیلی:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                        <ui:TextBox x:Name="TxtStorageDesc" FlowDirection="RightToLeft" TextAlignment="Right" TextWrapping="Wrap" Height="55" Margin="0,0,0,14"/>
+                                        <ui:TextBox x:Name="TxtStorageDesc" FlowDirection="RightToLeft" TextAlignment="Left" TextWrapping="Wrap" Height="55" Margin="0,0,0,14"/>
 
                                         <StackPanel Orientation="Horizontal">
                                             <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره کالا" Click="BtnSaveStorageItem_Click" Margin="0,0,8,0"/>
@@ -2093,7 +2132,7 @@
                     <!-- ۵. صفحه تنظیمات سامانه -->
                     <Grid x:Name="ViewSettings" Margin="16" Visibility="Collapsed">
                         <!-- فرم‌های تنظیمات داخل اسکرول -->
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalAlignment="Center" MaxWidth="920" Padding="0,0,6,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalAlignment="Stretch" Padding="0,0,8,0">
                             <StackPanel>
                                 <!-- کارت ۱: مشخصات شرکت ما (فروشنده) -->
                                 <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,12" Padding="16">
@@ -2130,6 +2169,32 @@
                                         <ui:TextBox x:Name="TxtSellerAddress" Margin="0,0,0,10" TextChanged="OnSettingsControlChanged"/>
 
                                         <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره مشخصات فروشنده" Click="BtnSaveSellerSettings_Click" HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- کارت ۲: تنظیمات پیشوند و شماره‌گذاری پیش‌فاکتور -->
+                                <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,12" Padding="16">
+                                    <StackPanel>
+                                        <TextBlock Text="تنظیمات پیشوند و شماره‌گذاری پیش‌فاکتور" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="پیشوند شماره پیش‌فاکتور و شماره شمارنده بعدی را تعیین نمایید. سیستم برای هر پیش‌فاکتور جدید، به صورت خودکار یک شماره یکتا و غیرتکراری تخصیص می‌دهد." 
+                                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                                <TextBlock Text="پیشوند شماره پیش‌فاکتور:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                <ui:TextBox x:Name="TxtSettingsInvoicePrefix" Text="ANA 405-" PlaceholderText="مانند: -ANA 405 یا -INV"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                                <TextBlock Text="شماره شمارنده بعدی (یکتا):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                <ui:TextBox x:Name="TxtSettingsNextInvoiceNumber" Text="1001" TextAlignment="Center" PlaceholderText="1001"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره تنظیمات شماره‌گذاری" Click="BtnSaveInvoiceNumberingSettings_Click" HorizontalAlignment="Right"/>
                                     </StackPanel>
                                 </Border>
                                     <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,14" Padding="18">
@@ -2297,48 +2362,55 @@
                                                     </DataGrid>
 
                                                     <!-- فرم افزودن حساب بانکی جدید -->
-                                                    <Grid Margin="0,0,0,12">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="1.1*"/>
-                                                            <ColumnDefinition Width="1.2*"/>
-                                                            <ColumnDefinition Width="1.6*"/>
-                                                            <ColumnDefinition Width="1.3*"/>
-                                                            <ColumnDefinition Width="1.3*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
+                                                    <StackPanel Margin="0,0,0,12">
+                                                        <Grid Margin="0,0,0,8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="1.2*"/>
+                                                            </Grid.ColumnDefinitions>
 
-                                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                                            <TextBlock Text="نام بانک:" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                            <ui:TextBox x:Name="TxtNewBankName" PlaceholderText="بانک ملی..." Height="32"/>
-                                                        </StackPanel>
-
-                                                        <StackPanel Grid.Column="1" Margin="2,0,4,0">
-                                                            <TextBlock Text="شماره حساب:" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                            <ui:TextBox x:Name="TxtNewBankAccountNumber" PlaceholderText="شماره حساب..." Height="32"/>
-                                                        </StackPanel>
-
-                                                        <StackPanel Grid.Column="2" Margin="2,0,4,0">
-                                                            <TextBlock Text="شماره شبا:" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                            <ui:TextBox x:Name="TxtNewBankSheba" PlaceholderText="IR..." Height="32"/>
-                                                        </StackPanel>
-
-                                                        <StackPanel Grid.Column="3" Margin="2,0,4,0">
-                                                            <TextBlock Text="شماره کارت:" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                            <ui:TextBox x:Name="TxtNewBankCard" PlaceholderText="۱۶ رقمی..." Height="32"/>
-                                                        </StackPanel>
-
-                                                        <StackPanel Grid.Column="4" Margin="2,0,4,0">
-                                                            <TextBlock Text="صاحب حساب:" FontSize="10" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                            <ui:TextBox x:Name="TxtNewBankOwner" PlaceholderText="نام شرکت..." Height="32"/>
-                                                        </StackPanel>
-
-                                                        <ui:Button Grid.Column="5" Appearance="Primary" Height="32" VerticalAlignment="Bottom" Padding="10,0" Click="BtnAddBankAccount_Click">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <ui:SymbolIcon Symbol="Add20" Margin="0,0,3,0"/>
-                                                                <TextBlock Text="افزودن حساب" FontSize="11" VerticalAlignment="Center"/>
+                                                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                                                <TextBlock Text="نام بانک:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                                <ui:TextBox x:Name="TxtNewBankName" PlaceholderText="بانک ملی..." Height="34"/>
                                                             </StackPanel>
-                                                        </ui:Button>
-                                                    </Grid>
+
+                                                            <StackPanel Grid.Column="1" Margin="3,0,3,0">
+                                                                <TextBlock Text="شماره حساب:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                                <ui:TextBox x:Name="TxtNewBankAccountNumber" PlaceholderText="شماره حساب..." Height="34"/>
+                                                            </StackPanel>
+
+                                                            <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                                                <TextBlock Text="شماره شبا:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                                <ui:TextBox x:Name="TxtNewBankSheba" PlaceholderText="IR..." Height="34"/>
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                                                <TextBlock Text="شماره کارت:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                                <ui:TextBox x:Name="TxtNewBankCard" PlaceholderText="۱۶ رقمی..." Height="34"/>
+                                                            </StackPanel>
+
+                                                            <StackPanel Grid.Column="1" Margin="3,0,6,0">
+                                                                <TextBlock Text="صاحب حساب:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                                <ui:TextBox x:Name="TxtNewBankOwner" PlaceholderText="نام شرکت..." Height="34"/>
+                                                            </StackPanel>
+
+                                                            <ui:Button Grid.Column="2" Appearance="Primary" Height="34" VerticalAlignment="Bottom" Padding="14,0" Click="BtnAddBankAccount_Click">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <ui:SymbolIcon Symbol="Add20" Margin="0,0,4,0"/>
+                                                                    <TextBlock Text="افزودن حساب" FontSize="11" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </ui:Button>
+                                                        </Grid>
+                                                    </StackPanel>
 
                                                     <!-- جداکننده ظریف -->
                                                     <Border Height="1" Background="{StaticResource BorderSubtleBrush}" Margin="0,4,0,10"/>
@@ -2419,7 +2491,42 @@
                                         </StackPanel>
                                     </Border>
 
-                                <!-- کارت ۴: پشتیبان‌گیری از اطلاعات -->
+                                <!-- کارت ۴: محل ذخیره‌سازی پایگاه‌داده (اشتراک شبکه / محلی) -->
+                                <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,12" Padding="14">
+                                    <StackPanel>
+                                        <TextBlock Text="محل ذخیره‌سازی پایگاه‌داده (اشتراک شبکه / محلی)" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="می‌توانید پوشه پایگاه‌داده را روی یک پوشه محلی یا پوشه اشتراکی شبکه (مسیرهای UNC مانند \\Server\TarazShare یا درایو اشتراکی) تنظیم نمایید. سامانه همواره یک پایگاه‌داده ثانویه در پوشه اصلی برنامه نگهداری می‌کند تا در صورت قطع ارتباط با شبکه، تغییرات بدون وقفه ذخیره شده و پس از اتصال مجدد به صورت خودکار ادغام و همگام‌سازی شوند." FontSize="10.5" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10"/>
+
+                                        <!-- کارت وضعیت اتصال و دیتابیس ثانویه -->
+                                        <Border x:Name="BrdDbStatus" Background="{StaticResource SurfaceMutedBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <ui:SymbolIcon x:Name="IcoDbCardStatus" Symbol="CheckmarkCircle20" FontSize="14" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0"/>
+                                                    <TextBlock x:Name="TxtDbCardStatus" Text="پایگاه‌داده محلی پیش‌فرض برنامه فعال است." FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="TxtDbSecondaryPath" Text="مسیر دیتابیس ثانویه (محلی): Data\database.json" FontSize="10" Foreground="{StaticResource TextMutedBrush}" FlowDirection="LeftToRight" TextAlignment="Left"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <TextBlock Text="مسیر پوشه پایگاه‌داده (محلی یا پوشه اشتراکی شبکه):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ui:TextBox x:Name="TxtDatabaseDirectory" PlaceholderText="مثال: \\192.168.1.10\TarazData یا D:\TarazSharedData" FlowDirection="LeftToRight" TextAlignment="Left" Margin="0,0,8,0"/>
+                                            <ui:Button Grid.Column="1" Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=FolderOpen24}" Content="انتخاب پوشه..." Click="BtnBrowseDatabaseDir_Click"/>
+                                        </Grid>
+
+                                        <WrapPanel Orientation="Horizontal">
+                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره و اتصال به پوشه" Margin="0,0,8,8" Click="BtnSaveDatabaseDir_Click"/>
+                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=ArrowSync24}" Content="همگام‌سازی و ادغام اکنون" Margin="0,0,8,8" Click="BtnSyncDatabaseNow_Click"/>
+                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=ArrowReset24}" Content="بازگشت به پوشه پیش‌فرض برنامه" Margin="0,0,8,8" Click="BtnResetDefaultDatabaseDir_Click"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- کارت ۵: پشتیبان‌گیری از اطلاعات -->
                                 <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
                                     <StackPanel>
                                         <TextBlock Text="پشتیبان‌گیری از اطلاعات سیستم" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
@@ -2445,14 +2552,16 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <ui:SymbolIcon Symbol="CheckmarkCircle20" FontSize="14" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="TxtStatusMessage" Text="آماده به‌کار" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            <ui:SymbolIcon x:Name="IcoDbStatus" Symbol="Database20" FontSize="13" Foreground="{StaticResource SuccessBrush}" Margin="0,0,5,0"/>
+                            <TextBlock x:Name="TxtDbStatusBottom" Text="پایگاه‌داده: محلی" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TxtStatusSeparator" Text=" | " FontSize="11" Foreground="{StaticResource BorderSubtleBrush}" Margin="10,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+                            <TextBlock x:Name="TxtStatusMessage" Text="" FontSize="11" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="توسعه داده شده توسط تیم نرم افزاری شرکت آریان نیرو گستر اترک" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                             <TextBlock Text=" • " FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="8,0" VerticalAlignment="Center"/>
-                            <TextBlock Text="تـراز (نسخه بتا v0.2.0-beta)" FontSize="10" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="تـراز (نسخه ۱.۰.۰ - v1.0.0)" FontSize="10" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>
                 </Border>

@@ -58,5 +58,12 @@ namespace TarazInvoice.Models
         // تنظیمات عمومی (همیشه بر اساس ریال)
         public string CurrencyUnit { get; set; } = "ریال";
         public string DefaultTerms { get; set; } = "فرایند تحویل بار پس از وصول پیش پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.در صورت تغییر قیمت پیش فاکتور اصلاحی تقدیم میگردد.";
+
+        // تنظیمات پیشوند و شماره‌گذاری یکتای پیش‌فاکتور
+        public string InvoicePrefix { get; set; } = "ANA 405-";
+        public int NextInvoiceNumber { get; set; } = 1001;
+
+        // مسیر پوشه اختصاصی / شبکه پایگاه‌داده
+        public string CustomDatabaseFolder { get; set; } = string.Empty;
     }
 }

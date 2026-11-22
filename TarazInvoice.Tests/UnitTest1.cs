@@ -1744,5 +1744,181 @@ namespace TarazInvoice.Tests
                 storage.DeleteStorageItem(newItem.Id);
             }
         }
+
+        [Fact]
+        public void Test_WpfUiTextBox_RightToLeft_AlignsPlaceholderAndCaretToRight()
+        {
+            Exception? ex = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    if (System.Windows.Application.Current == null)
+                    {
+                        var app = new TarazInvoice.App();
+                        app.InitializeComponent();
+                    }
+                    var tb = new Wpf.Ui.Controls.TextBox
+                    {
+                        FlowDirection = System.Windows.FlowDirection.RightToLeft,
+                        PlaceholderText = "نام کالا را بنویسید...",
+                        Width = 300
+                    };
+                    
+                    var win = new System.Windows.Window { Content = tb, FlowDirection = System.Windows.FlowDirection.RightToLeft };
+                    win.Show();
+                    tb.ApplyTemplate();
+                    
+                    var placeholder = tb.Template.FindName("PlaceholderTextBox", tb) as System.Windows.Controls.TextBlock;
+                    var pPoint = placeholder?.TranslatePoint(new System.Windows.Point(0, 0), tb);
+                    
+                    tb.Text = "تست";
+                    tb.Select(0, 0);
+                    var rect0 = tb.GetRectFromCharacterIndex(0);
+                    win.Close();
+
+                    // In RTL coordinate system (origin at top-right), position near 11-13px is at the right edge
+                    Assert.NotNull(placeholder);
+                    Assert.True(pPoint?.X < 50); // Near right edge (X < 50), not pushed to far left (> 150)
+                    Assert.True(rect0.X < 50);
+                }
+                catch (Exception e)
+                {
+                    ex = e;
+                }
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (ex != null) throw ex;
+        }
+
+        [Fact]
+        public void Test_InvoiceItem_UpdateNameAndProperties_FiresPropertyChangedProperly()
+        {
+            var item = new InvoiceItem
+            {
+                RowNumber = 1,
+                ItemName = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰",
+                Unit = "عدد",
+                RawPrice = 18500000
+            };
+
+            var changedProperties = new List<string>();
+            item.PropertyChanged += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.PropertyName))
+                    changedProperties.Add(e.PropertyName);
+            };
+
+            // تغییر نام کالا به فلنج
+            item.ItemName = "فلنج کربن استیل گلوجوش ۶ اینچ";
+            item.Unit = "دستگاه";
+            item.RawPrice = 4200000;
+
+            Assert.Contains(nameof(InvoiceItem.ItemName), changedProperties);
+            Assert.Contains(nameof(InvoiceItem.Unit), changedProperties);
+            Assert.Contains(nameof(InvoiceItem.RawPrice), changedProperties);
+            Assert.Equal("فلنج کربن استیل گلوجوش ۶ اینچ", item.ItemName);
+            Assert.Equal("دستگاه", item.Unit);
+            Assert.Equal(4200000, item.RawPrice);
+        }
+
+        [Fact]
+        public void Test_AppSettings_InvoicePrefixAndNextNumber_DefaultsAndPersistence()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_Settings_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+                var settings = storage.GetSettings();
+
+                Assert.Equal("ANA 405-", settings.InvoicePrefix);
+                Assert.Equal(1001, settings.NextInvoiceNumber);
+
+                // تغییر تنظیمات و ذخیره
+                settings.InvoicePrefix = "INV-2025-";
+                settings.NextInvoiceNumber = 5001;
+                storage.Save();
+
+                // بازخوانی از فایل
+                var reloadedStorage = new StorageService(dbPath);
+                var reloadedSettings = reloadedStorage.GetSettings();
+
+                Assert.Equal("INV-2025-", reloadedSettings.InvoicePrefix);
+                Assert.Equal(5001, reloadedSettings.NextInvoiceNumber);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_StorageService_UniqueInvoiceNumbering_CollisionAvoidance()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_Numbering_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+                var settings = storage.GetSettings();
+                settings.InvoicePrefix = "ANA-";
+                settings.NextInvoiceNumber = 100;
+                storage.Save();
+
+                // ۱. Peek نباید شمارنده را افزایش دهد
+                string peek1 = storage.PeekNextUniqueInvoiceNumber();
+                Assert.Equal("ANA-100", peek1);
+                Assert.Equal(100, storage.GetSettings().NextInvoiceNumber);
+
+                // ۲. Generate شماره را تولید کرده و شمارنده را به 101 می‌برد
+                string gen1 = storage.GenerateNextUniqueInvoiceNumber();
+                Assert.Equal("ANA-100", gen1);
+                Assert.Equal(101, storage.GetSettings().NextInvoiceNumber);
+
+                // ۳. ایجاد یک پیش‌فاکتور با شماره ANA-101 به صورت دستی
+                storage.AddOrUpdateInvoice(new ProformaInvoice
+                {
+                    InvoiceNumber = "ANA-101",
+                    CompanyName = "مشتری تست"
+                });
+
+                // ۴. اکنون شماره 101 اشغال است؛ GenerateNextUniqueInvoiceNumber باید پرش کرده و ANA-102 را بازگرداند
+                string gen2 = storage.GenerateNextUniqueInvoiceNumber();
+                Assert.Equal("ANA-102", gen2);
+                Assert.Equal(103, storage.GetSettings().NextInvoiceNumber);
+
+                // ۵. بررسی با اعداد فارسی: فاکتوری با شماره فارسی ANA-۱۰۳ ثبت می‌کنیم
+                storage.AddOrUpdateInvoice(new ProformaInvoice
+                {
+                    InvoiceNumber = "ANA-۱۰۳",
+                    CompanyName = "مشتری تست ۲"
+                });
+
+                // ۶. سیستم باید تشخیص دهد که ANA-103 اشغال است و ANA-104 را تولید کند
+                string gen3 = storage.GenerateNextUniqueInvoiceNumber();
+                Assert.Equal("ANA-104", gen3);
+                Assert.Equal(105, storage.GetSettings().NextInvoiceNumber);
+
+                // ۷. بررسی IsInvoiceNumberInUse
+                Assert.True(storage.IsInvoiceNumberInUse("ANA-100"));
+                Assert.True(storage.IsInvoiceNumberInUse("ANA-۱۰۱")); // فارسی
+                Assert.True(storage.IsInvoiceNumberInUse("ANA-103"));
+                Assert.False(storage.IsInvoiceNumberInUse("ANA-999"));
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
     }
 }
