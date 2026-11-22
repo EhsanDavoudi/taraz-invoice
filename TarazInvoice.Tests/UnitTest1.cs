@@ -1554,5 +1554,86 @@ namespace TarazInvoice.Tests
 
             Assert.Null(threadEx);
         }
+
+        [Fact]
+        public void Test_PersianRtlText_And_FlowDocument_ItemCells_AreRightAlignedAndRtl()
+        {
+            // ۱. بررسی فرمت صحیح راست‌به‌چپ برای متن‌های دارای خط‌تیره و عدد
+            string formatted = PrintPdfService.FormatPersianRtlText("کابلشو مسی 16-8");
+            Assert.Contains("\u200F", formatted);
+            Assert.Contains("\u202B", formatted);
+            Assert.Contains("\u202C", formatted);
+
+            Exception? threadEx = null;
+            var thread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    var storage = new StorageService();
+                    var printService = new PrintPdfService(storage);
+                    var inv = new ProformaInvoice
+                    {
+                        InvoiceNumber = "EXP-TEST-001",
+                        CompanyName = "شرکت پتروشیمی زاگرس",
+                        Items = new List<InvoiceItem>
+                        {
+                            new InvoiceItem { RowNumber = 1, ItemName = "کابلشو مسی 16-8", Quantity = 10, RawPrice = 3600000 },
+                            new InvoiceItem { RowNumber = 2, ItemName = "کابلشو مسی سایز 35", Quantity = 5, RawPrice = 4500000 }
+                        }
+                    };
+
+                    var doc = printService.CreateInvoiceFlowDocument(inv);
+
+                    // پیدا کردن جدول اقلام (دومین جدول پس از سربرگ)
+                    var tables = doc.Blocks.OfType<System.Windows.Documents.Table>().ToList();
+                    Assert.True(tables.Count >= 2);
+                    var itemsTable = tables[1];
+                    Assert.Equal(System.Windows.FlowDirection.RightToLeft, itemsTable.FlowDirection);
+
+                    var rows = itemsTable.RowGroups[0].Rows;
+                    // سطر ۱ هدر است، سطر ۲ اولین قلم کالا است
+                    var itemRow1 = rows[1];
+                    var nameCell = itemRow1.Cells[1]; // ستون شرح کالا
+
+                    Assert.Equal(System.Windows.FlowDirection.RightToLeft, nameCell.FlowDirection);
+                    Assert.Equal(System.Windows.TextAlignment.Right, nameCell.TextAlignment);
+
+                    // بررسی اینکه سلول حاوی پاراگراف راست‌چین است و نه BlockUIContainer چپ‌چین
+                    var para = Assert.IsType<System.Windows.Documents.Paragraph>(nameCell.Blocks.FirstBlock);
+                    Assert.Equal(System.Windows.FlowDirection.RightToLeft, para.FlowDirection);
+                    Assert.Equal(System.Windows.TextAlignment.Right, para.TextAlignment);
+
+                    // رندر تصویری برای بررسی بصری خروجی
+                    var paginator = ((System.Windows.Documents.IDocumentPaginatorSource)doc).DocumentPaginator;
+                    paginator.PageSize = new System.Windows.Size(794, 1123);
+                    var page = paginator.GetPage(0);
+                    var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(794, 1123, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+                    var dv = new System.Windows.Media.DrawingVisual();
+                    using (var dc = dv.RenderOpen())
+                    {
+                        dc.DrawRectangle(System.Windows.Media.Brushes.White, null, new System.Windows.Rect(0, 0, 794, 1123));
+                    }
+                    rtb.Render(dv);
+                    rtb.Render(page.Visual);
+
+                    string previewPath = Path.Combine(Path.GetTempPath(), "test_rtl_preview.png");
+                    var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                    encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+                    using (var fs = File.Create(previewPath))
+                    {
+                        encoder.Save(fs);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    threadEx = ex;
+                }
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.Null(threadEx);
+        }
     }
 }

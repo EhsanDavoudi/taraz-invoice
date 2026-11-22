@@ -33,6 +33,7 @@ namespace TarazInvoice.Services
             using var fs = new FileStream(templatePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var workbook = new XLWorkbook(fs);
             var worksheet = workbook.Worksheets.FirstOrDefault() ?? workbook.Worksheet(1);
+            worksheet.RightToLeft = true;
 
             // جایگزینی هوشمند تگ‌های متنی در کل شیت اول
             ReplacePlaceholder(worksheet, "{{INVOICE_NO}}", invoice.InvoiceNumber);
@@ -694,6 +695,7 @@ namespace TarazInvoice.Services
 
                 ws.Cell(r, 4).Value = inv.CompanyName;
                 ws.Cell(r, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                ws.Cell(r, 4).Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
 
                 ws.Cell(r, 5).Value = inv.ExpertName;
                 ws.Cell(r, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -792,6 +794,7 @@ namespace TarazInvoice.Services
 
                 ws.Cell(r, 3).Value = item.Name;
                 ws.Cell(r, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                ws.Cell(r, 3).Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
 
                 ws.Cell(r, 4).Value = item.Unit;
                 ws.Cell(r, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;

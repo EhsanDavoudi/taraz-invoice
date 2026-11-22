@@ -901,7 +901,7 @@
                                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                                     <TextBlock Text="انتخاب یا جستجوی کالا از انبار (کالا یا شرح را تایپ کنید):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                                     <Grid>
-                                                        <ui:TextBox x:Name="TxtQuickItemName" PlaceholderText="نام کالا را تایپ کنید..." TextChanged="TxtQuickItemName_TextChanged"/>
+                                                        <ui:TextBox x:Name="TxtQuickItemName" FlowDirection="RightToLeft" TextAlignment="Right" PlaceholderText="نام کالا را تایپ کنید..." TextChanged="TxtQuickItemName_TextChanged"/>
                                                         <Popup x:Name="PopupQuickSuggestions" PlacementTarget="{Binding ElementName=TxtQuickItemName}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
                                                             <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" MaxHeight="280" MinWidth="460" Margin="0,4,0,0">
                                                                 <Border.Effect>
@@ -918,8 +918,8 @@
                                                                                         <ColumnDefinition Width="*"/>
                                                                                         <ColumnDefinition Width="Auto"/>
                                                                                     </Grid.ColumnDefinitions>
-                                                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
+                                                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" FlowDirection="RightToLeft">
+                                                                                        <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
                                                                                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                                                             <TextBlock Text="{Binding Code, StringFormat='کد: {0}'}" FontSize="10.5" Foreground="#64748B" Margin="0,0,10,0"/>
                                                                                             <TextBlock Text="{Binding Category, StringFormat='دسته: {0}'}" FontSize="10.5" Foreground="#94A3B8"/>
@@ -1031,8 +1031,8 @@
                                                                         <ColumnDefinition Width="*"/>
                                                                         <ColumnDefinition Width="Auto"/>
                                                                     </Grid.ColumnDefinitions>
-                                                                    <StackPanel Grid.Column="0">
-                                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
+                                                                    <StackPanel Grid.Column="0" FlowDirection="RightToLeft">
+                                                                        <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" FontWeight="Bold" FontSize="12.5" Foreground="#0F172A" TextWrapping="Wrap"/>
                                                                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                                                             <TextBlock Text="{Binding Code, StringFormat='کد: {0}'}" FontSize="10.5" Foreground="#64748B" Margin="0,0,12,0"/>
                                                                             <TextBlock Text="{Binding Category, StringFormat='دسته: {0}'}" FontSize="10.5" Foreground="#64748B"/>
@@ -1063,7 +1063,7 @@
                                                 <DataGridTemplateColumn Header="محصول (شرح کالا یا خدمات) *" Width="2.8*" MinWidth="180">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="6,3" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="6,3" Margin="1" Cursor="IBeam" MinHeight="26" FlowDirection="RightToLeft">
                                                                 <TextBlock Text="{Binding ItemName}" 
                                                                            FlowDirection="RightToLeft"
                                                                            VerticalAlignment="Center" HorizontalAlignment="Stretch" 
@@ -1638,7 +1638,7 @@
                                         <DataGridTemplateColumn Header="نام کالا / شرح قطعه" Width="2.8*" MinWidth="180">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" Margin="6,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" HorizontalAlignment="Stretch" TextWrapping="Wrap" Margin="8,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -1673,7 +1673,7 @@
                                         <ui:TextBox x:Name="TxtStorageCode" PlaceholderText="PRD-101" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="نام کالا یا قطعه *:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                        <ui:TextBox x:Name="TxtStorageName" PlaceholderText="نام کامل کالا را وارد کنید..." TextWrapping="Wrap" Height="50" Margin="0,0,0,8"/>
+                                        <ui:TextBox x:Name="TxtStorageName" FlowDirection="RightToLeft" TextAlignment="Right" PlaceholderText="نام کامل کالا را وارد کنید..." TextWrapping="Wrap" Height="50" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="واحد کالا:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                         <ComboBox x:Name="CmbStorageUnit" Height="36" HorizontalAlignment="Stretch" IsEditable="True" Margin="0,0,0,8"/>
@@ -1685,7 +1685,7 @@
                                         <ui:TextBox x:Name="TxtStorageCategory" PlaceholderText="مثلاً: ابزار دقیق، قطعات برق..." Margin="0,0,0,8"/>
 
                                         <TextBlock Text="توضیحات تکمیلی:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                        <ui:TextBox x:Name="TxtStorageDesc" TextWrapping="Wrap" Height="55" Margin="0,0,0,14"/>
+                                        <ui:TextBox x:Name="TxtStorageDesc" FlowDirection="RightToLeft" TextAlignment="Right" TextWrapping="Wrap" Height="55" Margin="0,0,0,14"/>
 
                                         <StackPanel Orientation="Horizontal">
                                             <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" Content="ذخیره کالا" Click="BtnSaveStorageItem_Click" Margin="0,0,8,0"/>
