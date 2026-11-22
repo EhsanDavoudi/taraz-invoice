@@ -518,7 +518,7 @@
                 <Setter Property="GridLinesVisibility" Value="None"/>
                 <Setter Property="HorizontalGridLinesBrush" Value="Transparent"/>
                 <Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
-                <Setter Property="RowHeight" Value="52"/>
+                <Setter Property="MinRowHeight" Value="44"/>
                 <Setter Property="FontSize" Value="12.5"/>
                 <Setter Property="AutoGenerateColumns" Value="False"/>
                 <Setter Property="CanUserAddRows" Value="False"/>
@@ -581,7 +581,7 @@
                 <Setter Property="Background" Value="White"/>
                 <Setter Property="BorderBrush" Value="#E2E8F0"/>
                 <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                <Setter Property="MinHeight" Value="52"/>
+                <Setter Property="MinHeight" Value="44"/>
                 <Style.Triggers>
                     <Trigger Property="IsSelected" Value="True">
                         <Setter Property="Background" Value="#EFF6FF"/>

@@ -21,7 +21,7 @@ namespace TarazInvoice.Services
         private const double RowH = 32;            // total row height for ONE line (borders included)
         private const double CellBorder = 1;       // px, each side
         private const double ContentW = 734;       // 794 - 2*30 page padding
-        private const double HeaderSideW = 270;    // company block width (right)
+        private const double HeaderSideW = 290;    // company block width (right)
         private const double HeaderTitleW = 194;   // title block width (center of page)
 
         // In a RightToLeft FlowDocument, TextAlignment.Right aligns to the right side (start of Persian reading)
@@ -188,9 +188,9 @@ namespace TarazInvoice.Services
 
         /// <summary>One-line bordered cell. Line height = RowH minus the cell borders, so the row is exactly RowH px.</summary>
         private static TableCell LineCell(string text, FontFamily font, double size, TextAlignment align,
-            Brush borderBrush, bool bold = false, Brush? bg = null, double hMargin = 4)
+            Brush borderBrush, bool bold = false, Brush? bg = null, double hMargin = 4, double? lineH = null)
         {
-            var p = MakePara(text, font, size, align, new Thickness(hMargin, 0, hMargin, 0), bold, null, RowH - 2 * CellBorder);
+            var p = MakePara(text, font, size, align, new Thickness(hMargin, 0, hMargin, 0), bold, null, lineH ?? (RowH - 2 * CellBorder));
             return MakeCell(p, borderBrush, bg);
         }
 
@@ -272,7 +272,7 @@ namespace TarazInvoice.Services
 
             var borderBrush = new SolidColorBrush(Color.FromRgb(100, 116, 139));
             var headerBgBrush = new SolidColorBrush(Color.FromRgb(220, 230, 242));
-            var summaryBgBrush = new SolidColorBrush(Color.FromRgb(241, 245, 249));
+            var summaryBgBrush = Brushes.White;
             var darkText = new SolidColorBrush(Color.FromRgb(15, 23, 42));
             var slateText = new SolidColorBrush(Color.FromRgb(30, 41, 59));
 
@@ -311,8 +311,8 @@ namespace TarazInvoice.Services
                 companyStack.Children.Add(new Image
                 {
                     Source = logo,
-                    Width = 52,
-                    Height = 52,
+                    Width = settings.LogoWidth > 0 ? settings.LogoWidth : 68,
+                    Height = settings.LogoHeight > 0 ? settings.LogoHeight : 68,
                     Stretch = Stretch.Uniform,
                     Margin = new Thickness(0, 0, 10, 0)
                 });
@@ -323,16 +323,16 @@ namespace TarazInvoice.Services
                 Text = settings.SellerName,
                 FontFamily = companyFont,
                 FontSize = companyFontSize,
-                FontWeight = FontWeights.Bold,
+                FontWeight = FontWeights.Normal,
                 Foreground = slateText,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
-                MaxWidth = HeaderSideW - 8 - (logo != null ? 62 : 0)
+                MaxWidth = HeaderSideW - 8 - (logo != null ? 78 : 0)
             });
             companyCell.Blocks.Add(new BlockUIContainer(companyStack));
 
-            var titleCell = new TableCell(MakePara("پیش فاکتور", font, 26, TextAlignment.Center,
-                new Thickness(0, 10, 0, 0), bold: true, fg: darkText));
+            var titleCell = new TableCell(MakePara("پیش فاکتور", font, 32, TextAlignment.Center,
+                new Thickness(0, 8, 0, 0), bold: true, fg: darkText));
 
             var spacerCell = new TableCell(MakePara("", font, 1, TextAlignment.Center));
 
@@ -390,13 +390,16 @@ namespace TarazInvoice.Services
 
             var tableGroup = new TableRowGroup();
 
+            double headerFs = fs > 9 ? fs - 1.5 : (fs * 0.88);
+            const double HeaderRowH = 24;
+            double headerInner = HeaderRowH - 2 * CellBorder;
             var thRow = new TableRow { Background = headerBgBrush };
-            thRow.Cells.Add(LineCell("ردیف", font, fs, TextAlignment.Center, borderBrush, bold: true));
-            thRow.Cells.Add(LineCell("شرح کالا", font, fs, TextAlignment.Center, borderBrush, bold: true));
-            thRow.Cells.Add(LineCell("مقدار", font, fs, TextAlignment.Center, borderBrush, bold: true));
-            thRow.Cells.Add(LineCell("واحد", font, fs, TextAlignment.Center, borderBrush, bold: true));
-            thRow.Cells.Add(LineCell($"قیمت واحد ({currUnit})", font, fs, TextAlignment.Center, borderBrush, bold: true));
-            thRow.Cells.Add(LineCell($"جمع کل ({currUnit})", font, fs, TextAlignment.Center, borderBrush, bold: true));
+            thRow.Cells.Add(LineCell("ردیف", font, headerFs, TextAlignment.Center, borderBrush, bold: true, lineH: headerInner));
+            thRow.Cells.Add(LineCell("شرح کالا", font, headerFs, TextAlignment.Center, borderBrush, bold: true, lineH: headerInner));
+            thRow.Cells.Add(LineCell("مقدار", font, headerFs, TextAlignment.Center, borderBrush, bold: true, lineH: headerInner));
+            thRow.Cells.Add(LineCell("واحد", font, headerFs, TextAlignment.Center, borderBrush, bold: true, lineH: headerInner));
+            thRow.Cells.Add(LineCell($"قیمت واحد ({currUnit})", font, headerFs, TextAlignment.Center, borderBrush, bold: true, lineH: headerInner));
+            thRow.Cells.Add(LineCell($"جمع کل ({currUnit})", font, headerFs, TextAlignment.Center, borderBrush, bold: true, lineH: headerInner));
             tableGroup.Rows.Add(thRow);
 
             int rowIdx = 1;
@@ -438,6 +441,17 @@ namespace TarazInvoice.Services
             itemsTable.RowGroups.Add(tableGroup);
             doc.Blocks.Add(itemsTable);
 
+            // نوار خاکستری باریک بالای جمع‌های مالی
+            var grayBarTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 0) };
+            grayBarTable.Columns.Add(new TableColumn { Width = new GridLength(ContentW) });
+            var grayGroup = new TableRowGroup();
+            var grayRow = new TableRow { Background = new SolidColorBrush(Color.FromRgb(89, 89, 89)) };
+            var grayCell = new TableCell(new Paragraph(new Run("")) { FontSize = 4, LineHeight = 10, Margin = new Thickness(0) }) { BorderThickness = new Thickness(1), BorderBrush = borderBrush };
+            grayRow.Cells.Add(grayCell);
+            grayGroup.Rows.Add(grayRow);
+            grayBarTable.RowGroups.Add(grayGroup);
+            doc.Blocks.Add(grayBarTable);
+
             // ==================== 4. Totals: full width, same font size ====================
             var summaryTable = new Table { CellSpacing = 0, Margin = new Thickness(0, 0, 0, 14), FontFamily = font };
             summaryTable.Columns.Add(new TableColumn { Width = new GridLength(ContentW - 130) });
@@ -467,7 +481,7 @@ namespace TarazInvoice.Services
             var termsGroup = new TableRowGroup();
 
             var thr = new TableRow();
-            thr.Cells.Add(new TableCell(MakePara("توضیحات :", font, fs, TextAlignment.Center, new Thickness(6, 4, 6, 4), bold: true))
+            thr.Cells.Add(new TableCell(MakePara("توضیحات :", font, fs, RtlStart, new Thickness(8, 4, 8, 4), bold: true))
             {
                 ColumnSpan = 2,
                 Background = headerBgBrush,
@@ -511,8 +525,8 @@ namespace TarazInvoice.Services
                 signStack.Children.Add(new Image
                 {
                     Source = stampBmp,
-                    MaxHeight = 75,
-                    MaxWidth = 140,
+                    Width = settings.StampWidth > 0 ? settings.StampWidth : 140,
+                    Height = settings.StampHeight > 0 ? settings.StampHeight : 75,
                     Stretch = Stretch.Uniform,
                     Margin = new Thickness(0, 0, 0, 4)
                 });
@@ -556,7 +570,7 @@ namespace TarazInvoice.Services
                 {
                     Text = settings.SellerName,
                     FontFamily = font,
-                    FontWeight = FontWeights.Bold,
+                    FontWeight = FontWeights.Normal,
                     FontSize = 9.5,
                     Foreground = blue,
                     VerticalAlignment = VerticalAlignment.Center,

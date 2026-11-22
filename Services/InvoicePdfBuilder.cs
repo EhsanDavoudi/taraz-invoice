@@ -21,7 +21,7 @@ namespace TarazInvoice.Services
         private const float BorderW = 0.5f;      // pt. Adjacent cells overlap, so inner lines look 2x this
         private const string BorderHex = "#64748B";
         private const string HeaderBg = "#ACCCF2";
-        private const string SummaryBg = "#ACCCF2";
+        private const string SummaryBg = "#FFFFFF";
 
         private const string Dark = "#0F172A";
         private const string Slate = "#1E293B";
@@ -96,12 +96,19 @@ namespace TarazInvoice.Services
 
         private static string[] Fonts(string? setting)
         {
-            return (string.IsNullOrWhiteSpace(setting) ? PrintPdfService.DefaultFont : setting)
+            var list = (string.IsNullOrWhiteSpace(setting) ? PrintPdfService.DefaultFont : setting)
                 .Split(',')
                 .Select(x => x.Trim())
                 .Select(x => x.Contains('#') ? x.Substring(x.LastIndexOf('#') + 1) : x) // WPF "pack://...#Font" style
                 .Where(x => x.Length > 0)
-                .ToArray();
+                .ToList();
+
+            foreach (var fb in PrintPdfService.DefaultFont.Split(',').Select(x => x.Trim()))
+            {
+                if (!list.Contains(fb, StringComparer.OrdinalIgnoreCase))
+                    list.Add(fb);
+            }
+            return list.ToArray();
         }
 
         private static byte[]? ReadBytes(string? path)
@@ -175,20 +182,25 @@ namespace TarazInvoice.Services
                     // ===== 1. header: company (right) | title (center) | info (far left) =====
                     col.Item().PaddingBottom(Px(12)).Row(row =>
                     {
-                        row.ConstantItem(Px(270)).Row(r =>
+                        row.ConstantItem(Px(290)).Row(r =>
                         {
                             if (logo != null)
-                                r.ConstantItem(Px(52)).Height(Px(52)).Image(logo).FitArea();
+                            {
+                                float lw = Px(s.LogoWidth > 0 ? s.LogoWidth : 68);
+                                float lh = Px(s.LogoHeight > 0 ? s.LogoHeight : 68);
+                                r.ConstantItem(lw).Height(lh).Image(logo).FitArea();
+                            }
 
                             r.RelativeItem().PaddingHorizontal(logo != null ? Px(10) : 0).AlignMiddle().Text(t =>
                             {
                                 t.AlignStart();
-                                t.Span(s.SellerName ?? "").FontFamily(companyFonts).FontSize(Px(companyFs)).Bold().FontColor(Slate);
+                                t.DefaultTextStyle(x => x.FontFamily(companyFonts).FontSize(Px(companyFs)).FontColor(Slate));
+                                t.Span(s.SellerName ?? "").FontFamily(companyFonts).FontSize(Px(companyFs)).FontColor(Slate);
                             });
                         });
 
-                        row.ConstantItem(Px(194)).PaddingTop(Px(10)).AlignCenter()
-                            .Text("پیش فاکتور").FontSize(Px(26)).Bold().FontColor(Dark);
+                        row.ConstantItem(Px(194)).PaddingTop(Px(8)).AlignCenter()
+                            .Text("پیش فاکتور").FontFamily(fonts).FontSize(Px(32)).Bold().FontColor(Dark);
 
                         row.RelativeItem();
 
@@ -234,10 +246,13 @@ namespace TarazInvoice.Services
                             c.ConstantColumn(Px(130));  // total
                         });
 
+                        const double HeaderRowH = 24;
+                        float headerFs = body > Px(9) ? body - Px(1.5) : (float)(body * 0.88);
+
                         table.Header(h =>
                         {
                             foreach (var title in new[] { "ردیف", "شرح کالا", "مقدار", "واحد", $"قیمت واحد ({cur})", $"جمع کل ({cur})" })
-                                Box(h.Cell(), RowH, HeaderBg).AlignCenter().Text(title).Bold().FontSize(body);
+                                Box(h.Cell(), HeaderRowH, HeaderBg).AlignCenter().Text(title).Bold().FontSize(headerFs);
                         });
 
                         int idx = 1;
@@ -265,6 +280,9 @@ namespace TarazInvoice.Services
                         }
                     });
 
+                    // نوار خاکستری باریک بالای جمع‌های مالی
+                    col.Item().Height(Px(10)).Border(BorderW).BorderColor(BorderHex).Background("#595959");
+
                     // ===== 4. totals: full width, same font size =====
                     col.Item().Table(table =>
                     {
@@ -276,8 +294,8 @@ namespace TarazInvoice.Services
 
                         void SumRow(string label, decimal value)
                         {
-                            Box(table.Cell(), RowH, SummaryBg).PaddingHorizontal(Px(4)).Text(label).Bold().FontSize(body);
-                            Box(table.Cell(), RowH).AlignCenter().Text($"{value:N0}").Bold().FontSize(body);
+                            Box(table.Cell(), RowH, "#FFFFFF").PaddingHorizontal(Px(4)).Text(label).Bold().FontSize(body);
+                            Box(table.Cell(), RowH, "#FFFFFF").AlignCenter().Text($"{value:N0}").Bold().FontSize(body);
                         }
 
                         SumRow($"جمع کل ( {cur} )", invoice.GrandTotal);
@@ -294,7 +312,7 @@ namespace TarazInvoice.Services
                             r.ConstantItem(Px(160))
                                 .BorderTop(BorderW).BorderLeft(BorderW).BorderRight(BorderW).BorderColor(BorderHex)
                                 .Background(HeaderBg)
-                                .PaddingVertical(Px(4)).AlignCenter()
+                                .PaddingVertical(Px(4)).PaddingHorizontal(Px(8)).AlignRight()
                                 .Text("توضیحات :").Bold().FontSize(body);
                             r.RelativeItem();
                         });
@@ -328,7 +346,9 @@ namespace TarazInvoice.Services
                         {
                             if (stamp != null)
                             {
-                                sc.Item().AlignCenter().Width(Px(140)).Height(Px(75)).Image(stamp).FitArea();
+                                float sw = Px(s.StampWidth > 0 ? s.StampWidth : 140);
+                                float sh = Px(s.StampHeight > 0 ? s.StampHeight : 75);
+                                sc.Item().AlignCenter().Width(sw).Height(sh).Image(stamp).FitArea();
                             }
                             else
                             {
@@ -342,7 +362,7 @@ namespace TarazInvoice.Services
                                             t.Span($"شماره ثبت: {s.SellerRegistrationNo}").FontSize(Px(8)).FontColor("#2563EB");
                                         });
                                         bc.Item().ExtendVertical().AlignMiddle().AlignCenter()
-                                            .Text(s.SellerName ?? "").Bold().FontSize(Px(9.5)).FontColor("#2563EB");
+                                            .Text(s.SellerName ?? "").FontSize(Px(9.5)).FontColor("#2563EB");
                                     });
                             }
 

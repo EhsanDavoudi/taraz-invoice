@@ -1635,5 +1635,114 @@ namespace TarazInvoice.Tests
 
             Assert.Null(threadEx);
         }
+
+        [Fact]
+        public void Test_AppSettings_LogoAndStampDimensions_DefaultsAndCustomValues()
+        {
+            var settings = new AppSettings();
+            Assert.Equal(68, settings.LogoWidth);
+            Assert.Equal(68, settings.LogoHeight);
+            Assert.Equal(140, settings.StampWidth);
+            Assert.Equal(75, settings.StampHeight);
+
+            settings.LogoWidth = 90;
+            settings.LogoHeight = 90;
+            settings.StampWidth = 160;
+            settings.StampHeight = 85;
+
+            Assert.Equal(90, settings.LogoWidth);
+            Assert.Equal(90, settings.LogoHeight);
+            Assert.Equal(160, settings.StampWidth);
+            Assert.Equal(85, settings.StampHeight);
+        }
+
+        [Fact]
+        public void Test_InvoicePdfBuilder_WithCustomLogoAndStampSizes_GeneratesValidPdf()
+        {
+            var settings = new AppSettings
+            {
+                SellerName = "شرکت تست آریا",
+                LogoWidth = 80,
+                LogoHeight = 80,
+                StampWidth = 150,
+                StampHeight = 80
+            };
+
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "TEST-999",
+                CompanyName = "شرکت خریدار آزمایشی",
+                IssueDateShamsi = "۱۴۰۳/۰۸/۰۱",
+                Items = new List<InvoiceItem>
+                {
+                    new InvoiceItem
+                    {
+                        RowNumber = 1,
+                        ItemName = "چراغ لاینر عرض 6 سانتیمتر مخصوص داخل کناف - بدنه سفید - فاقد فلیکر - نور طبیعی برند پاژ شعاع تابان 40 وات همراه با دیفیوزر و درایو با گارانتی 24 ماهه",
+                        Quantity = 10,
+                        RawPrice = 5000000,
+                        DiscountPercent = 5,
+                        ProfitPercent = 10
+                    }
+                }
+            };
+            foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+            string tempPdf = Path.Combine(Path.GetTempPath(), $"invoice_test_{Guid.NewGuid():N}.pdf");
+            try
+            {
+                InvoicePdfBuilder.Save(invoice, settings, tempPdf);
+                Assert.True(File.Exists(tempPdf));
+                var fi = new FileInfo(tempPdf);
+                Assert.True(fi.Length > 1000);
+            }
+            finally
+            {
+                try { if (File.Exists(tempPdf)) File.Delete(tempPdf); } catch { }
+            }
+        }
+
+        [Fact]
+        public void Test_StorageService_AddOrUpdateStorageItem_TriggersDataChangedAndPersists()
+        {
+            var storage = new StorageService();
+            bool eventFired = false;
+            Action handler = () => { eventFired = true; };
+            storage.DataChanged += handler;
+
+            var newItem = new StorageItem
+            {
+                Name = "کالای تستی انبار " + Guid.NewGuid().ToString("N").Substring(0, 8),
+                Code = "PRD-TEST",
+                Unit = "دستگاه",
+                DefaultPrice = 12500000,
+                Category = "تجهیزات"
+            };
+
+            try
+            {
+                storage.AddOrUpdateStorageItem(newItem);
+                Assert.True(eventFired);
+
+                var items = storage.GetStorageItems();
+                Assert.Contains(items, x => x.Id == newItem.Id && x.DefaultPrice == 12500000);
+
+                // ویرایش کالا
+                eventFired = false;
+                newItem.DefaultPrice = 14000000;
+                storage.AddOrUpdateStorageItem(newItem);
+
+                Assert.True(eventFired);
+                items = storage.GetStorageItems();
+                var updated = items.FirstOrDefault(x => x.Id == newItem.Id);
+                Assert.NotNull(updated);
+                Assert.Equal(14000000, updated.DefaultPrice);
+            }
+            finally
+            {
+                storage.DataChanged -= handler;
+                storage.DeleteStorageItem(newItem.Id);
+            }
+        }
     }
 }

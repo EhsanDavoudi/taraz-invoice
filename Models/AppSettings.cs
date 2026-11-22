@@ -24,6 +24,10 @@ namespace TarazInvoice.Models
         // تصویر لوگو و مهر و امضا
         public string CompanyLogoPath { get; set; } = string.Empty;
         public string CompanyStampPath { get; set; } = string.Empty;
+        public double LogoWidth { get; set; } = 68;
+        public double LogoHeight { get; set; } = 68;
+        public double StampWidth { get; set; } = 140;
+        public double StampHeight { get; set; } = 75;
 
         // تنظیمات قلم و فونت پیش‌فاکتور (جهت عنوان شرکت و سایر سطرها)
         public string CompanyNameFontFamily { get; set; } = "Vazirmatn";

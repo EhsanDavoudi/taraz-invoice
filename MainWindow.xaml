@@ -821,17 +821,12 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                                     <TextBlock Text="تاریخ صدور:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                                     <ui:TextBox x:Name="TxtEditorIssueDate"/>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="1" Margin="3,0,3,0">
-                                                    <TextBlock Text="مهلت اعتبار:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                    <ui:TextBox x:Name="TxtEditorValidUntil"/>
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
                                                     <TextBlock Text="وضعیت فاکتور:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                                     <ComboBox x:Name="CmbEditorStatus" Height="36" HorizontalAlignment="Stretch"/>
                                                 </StackPanel>
@@ -899,9 +894,9 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                                    <TextBlock Text="انتخاب یا جستجوی کالا از انبار (کالا یا شرح را تایپ کنید):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                    <TextBlock Text="انتخاب یا جستجوی کالا از انبار (کالا یا شرح را بنویسید):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                                     <Grid>
-                                                        <ui:TextBox x:Name="TxtQuickItemName" FlowDirection="RightToLeft" TextAlignment="Right" PlaceholderText="نام کالا را تایپ کنید..." TextChanged="TxtQuickItemName_TextChanged"/>
+                                                        <ui:TextBox x:Name="TxtQuickItemName" FlowDirection="RightToLeft" TextAlignment="Right" HorizontalContentAlignment="Right" PlaceholderText="نام کالا را بنویسید..." TextChanged="TxtQuickItemName_TextChanged"/>
                                                         <Popup x:Name="PopupQuickSuggestions" PlacementTarget="{Binding ElementName=TxtQuickItemName}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
                                                             <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" MaxHeight="280" MinWidth="460" Margin="0,4,0,0">
                                                                 <Border.Effect>
@@ -1021,7 +1016,9 @@
                                                 </Border.Effect>
                                                 <ListBox x:Name="LstGridSuggestions" BorderThickness="0" Background="Transparent"
                                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                         PreviewMouseLeftButtonDown="LstGridSuggestions_PreviewMouseLeftButtonDown"
                                                          PreviewMouseLeftButtonUp="LstGridSuggestions_PreviewMouseLeftButtonUp"
+                                                         SelectionChanged="LstGridSuggestions_SelectionChanged"
                                                          KeyDown="LstGridSuggestions_KeyDown">
                                                     <ListBox.ItemTemplate>
                                                         <DataTemplate>
@@ -1051,7 +1048,7 @@
                                         </Popup>
 
                                         <DataGrid x:Name="DgrInvoiceItems" AutoGenerateColumns="False" CanUserAddRows="False" 
-                                                  SelectionMode="Extended" SelectionUnit="CellOrRowHeader" MinRowHeight="32"
+                                                  SelectionMode="Extended" SelectionUnit="CellOrRowHeader" MinRowHeight="44"
                                                   PreviewMouseLeftButtonUp="DataGrid_PreviewMouseLeftButtonUp"
                                                   MinHeight="180" MaxHeight="450" VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Auto">
@@ -1063,7 +1060,7 @@
                                                 <DataGridTemplateColumn Header="محصول (شرح کالا یا خدمات) *" Width="2.8*" MinWidth="180">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="6,3" Margin="1" Cursor="IBeam" MinHeight="26" FlowDirection="RightToLeft">
+                                                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam" FlowDirection="RightToLeft" VerticalAlignment="Stretch">
                                                                 <TextBlock Text="{Binding ItemName}" 
                                                                            FlowDirection="RightToLeft"
                                                                            VerticalAlignment="Center" HorizontalAlignment="Stretch" 
@@ -1082,7 +1079,7 @@
                                                                             TextAlignment="Right"
                                                                             PlaceholderText="نام کالا یا جستجو در انبار..."
                                                                             FontSize="12.5" FontWeight="SemiBold"
-                                                                            Height="32" Padding="6,2"
+                                                                            MinHeight="36" Height="Auto" TextWrapping="Wrap" Padding="6,2"
                                                                             VerticalAlignment="Center" HorizontalAlignment="Stretch"
                                                                             Loaded="TxtGridItemName_Loaded"
                                                                             TextChanged="TxtGridItemName_TextChanged"
@@ -1631,14 +1628,14 @@
                             <!-- جدول کالاها -->
                             <Border Grid.Column="0" Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,14,0" ClipToBounds="True">
                                 <DataGrid x:Name="DgrStorage" AutoGenerateColumns="False" SelectionMode="Single"
-                                          CanUserResizeColumns="True" CanUserSortColumns="True"
+                                          CanUserResizeColumns="True" CanUserSortColumns="True" MinRowHeight="44"
                                           MouseDoubleClick="DgrStorage_MouseDoubleClick">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="کد کالا" Binding="{Binding Code}" Width="0.8*" MinWidth="75"/>
                                         <DataGridTemplateColumn Header="نام کالا / شرح قطعه" Width="2.8*" MinWidth="180">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" HorizontalAlignment="Stretch" TextWrapping="Wrap" Margin="8,4" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FlowDirection="RightToLeft" TextAlignment="Right" HorizontalAlignment="Stretch" TextWrapping="Wrap" Margin="8,6" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -2093,17 +2090,10 @@
                         </Border>
                     </Grid>
 
-                    <!-- ۵. صفحه تنظیمات و پیش‌نمایش زنده سند رسمی (PDF / چاپ) -->
+                    <!-- ۵. صفحه تنظیمات سامانه -->
                     <Grid x:Name="ViewSettings" Margin="16" Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <!-- ستون ۱ (راست): فرم‌های تنظیمات شرکت، سربرگ، قلم‌ها، حساب‌ها و پشتیبان‌گیری -->
-                            <ColumnDefinition Width="480"/>
-                            <!-- ستون ۲ (چپ): پیش‌نمایش زنده سند رسمی (PDF / چاپ) با قابلیت اعمال آنی تغییرات -->
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- ستون راست: فرم‌های تنظیمات داخل اسکرول -->
-                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,14,0" Padding="0,0,6,0">
+                        <!-- فرم‌های تنظیمات داخل اسکرول -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalAlignment="Center" MaxWidth="920" Padding="0,0,6,0">
                             <StackPanel>
                                 <!-- کارت ۱: مشخصات شرکت ما (فروشنده) -->
                                 <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,12" Padding="16">
@@ -2150,52 +2140,86 @@
 
                                             <!-- انتخاب تصویر لوگوی شرکت -->
                                             <Border Background="{StaticResource SurfaceSubtleBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
 
-                                                    <Border Grid.Column="0" Width="55" Height="55" CornerRadius="6" Background="White" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" Margin="0,0,12,0" ClipToBounds="True">
-                                                        <Image x:Name="ImgLogoPreview" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    </Border>
+                                                        <Border Grid.Column="0" Width="55" Height="55" CornerRadius="6" Background="White" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" Margin="0,0,12,0" ClipToBounds="True">
+                                                            <Image x:Name="ImgLogoPreview" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
 
-                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
-                                                        <TextBlock Text="تصویر لوگوی شرکت (بالای سربرگ):" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
-                                                        <ui:TextBox x:Name="TxtCompanyLogoPath" PlaceholderText="مسیر فایل لوگو (.png, .jpg)..." IsReadOnly="True"/>
-                                                    </StackPanel>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                            <TextBlock Text="تصویر لوگوی شرکت (بالای سربرگ):" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                                                            <ui:TextBox x:Name="TxtCompanyLogoPath" PlaceholderText="مسیر فایل لوگو (.png, .jpg)..." IsReadOnly="True"/>
+                                                        </StackPanel>
 
-                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-                                                        <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=FolderOpen24}" Content="انتخاب..." Click="BtnBrowseLogo_Click" Margin="0,0,4,0"/>
-                                                        <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=Dismiss24}" ToolTip="حذف لوگو" Click="BtnClearLogo_Click"/>
-                                                    </StackPanel>
-                                                </Grid>
+                                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+                                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=FolderOpen24}" Content="انتخاب..." Click="BtnBrowseLogo_Click" Margin="0,0,4,0"/>
+                                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=Dismiss24}" ToolTip="حذف لوگو" Click="BtnClearLogo_Click"/>
+                                                        </StackPanel>
+                                                    </Grid>
+
+                                                    <Grid Margin="0,8,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                            <TextBlock Text="عرض لوگو در PDF (پیکسل):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                            <ui:TextBox x:Name="TxtLogoWidth" Text="68" TextAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                            <TextBlock Text="ارتفاع لوگو در PDF (پیکسل):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                            <ui:TextBox x:Name="TxtLogoHeight" Text="68" TextAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </StackPanel>
                                             </Border>
 
                                             <!-- تصویر مهر و امضای شرکت -->
                                             <Border Background="{StaticResource SurfaceSubtleBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
 
-                                                    <Border Grid.Column="0" Width="70" Height="55" CornerRadius="6" Background="White" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" Margin="0,0,12,0" ClipToBounds="True">
-                                                        <Image x:Name="ImgStampPreview" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    </Border>
+                                                        <Border Grid.Column="0" Width="70" Height="55" CornerRadius="6" Background="White" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" Margin="0,0,12,0" ClipToBounds="True">
+                                                            <Image x:Name="ImgStampPreview" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
 
-                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
-                                                        <TextBlock Text="تصویر مهر و امضای رسمی شرکت:" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
-                                                        <ui:TextBox x:Name="TxtCompanyStampPath" PlaceholderText="مسیر تصویر مهر (.png, .jpg)..." IsReadOnly="True"/>
-                                                    </StackPanel>
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                            <TextBlock Text="تصویر مهر و امضای رسمی شرکت:" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4"/>
+                                                            <ui:TextBox x:Name="TxtCompanyStampPath" PlaceholderText="مسیر تصویر مهر (.png, .jpg)..." IsReadOnly="True"/>
+                                                        </StackPanel>
 
-                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-                                                        <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=FolderOpen24}" Content="انتخاب..." Click="BtnBrowseStamp_Click" Margin="0,0,4,0"/>
-                                                        <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=Dismiss24}" ToolTip="حذف مهر" Click="BtnClearStamp_Click"/>
-                                                    </StackPanel>
-                                                </Grid>
+                                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+                                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=FolderOpen24}" Content="انتخاب..." Click="BtnBrowseStamp_Click" Margin="0,0,4,0"/>
+                                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=Dismiss24}" ToolTip="حذف مهر" Click="BtnClearStamp_Click"/>
+                                                        </StackPanel>
+                                                    </Grid>
+
+                                                    <Grid Margin="0,8,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                            <TextBlock Text="عرض مهر در PDF (پیکسل):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                            <ui:TextBox x:Name="TxtStampWidth" Text="140" TextAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                            <TextBlock Text="ارتفاع مهر در PDF (پیکسل):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
+                                                            <ui:TextBox x:Name="TxtStampHeight" Text="75" TextAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </StackPanel>
                                             </Border>
 
                                             <!-- تنظیمات فونت‌ها -->
@@ -2213,7 +2237,7 @@
 
                                                         <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                                             <TextBlock Text="فونت نام شرکت:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
-                                                            <ComboBox x:Name="CmbFontCompanyName" Height="36" HorizontalAlignment="Stretch" IsEditable="True" IsTextSearchEnabled="True">
+                                                            <ComboBox x:Name="CmbFontCompanyName" Height="36" HorizontalAlignment="Stretch" IsEditable="True" IsTextSearchEnabled="True" SelectionChanged="OnSettingsSelectionChanged">
                                                                 <ComboBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <TextBlock Text="{Binding}" FontFamily="{Binding}" FontSize="12.5"/>
@@ -2224,12 +2248,12 @@
 
                                                         <StackPanel Grid.Column="1" Margin="2,0,6,0">
                                                             <TextBlock Text="اندازه نام:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
-                                                            <ui:TextBox x:Name="TxtFontSizeCompanyName" Text="18" TextAlignment="Center" Height="36"/>
+                                                            <ui:TextBox x:Name="TxtFontSizeCompanyName" Text="18" TextAlignment="Center" Height="36" TextChanged="OnSettingsControlChanged"/>
                                                         </StackPanel>
 
                                                         <StackPanel Grid.Column="2" Margin="2,0,6,0">
                                                             <TextBlock Text="فونت سطرها:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
-                                                            <ComboBox x:Name="CmbFontTable" Height="36" HorizontalAlignment="Stretch" IsEditable="True" IsTextSearchEnabled="True">
+                                                            <ComboBox x:Name="CmbFontTable" Height="36" HorizontalAlignment="Stretch" IsEditable="True" IsTextSearchEnabled="True" SelectionChanged="OnSettingsSelectionChanged">
                                                                 <ComboBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <TextBlock Text="{Binding}" FontFamily="{Binding}" FontSize="12.5"/>
@@ -2240,7 +2264,7 @@
 
                                                         <StackPanel Grid.Column="3" Margin="2,0,0,0">
                                                             <TextBlock Text="اندازه سطر:" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
-                                                            <ui:TextBox x:Name="TxtFontSizeTable" Text="11" TextAlignment="Center" Height="36"/>
+                                                            <ui:TextBox x:Name="TxtFontSizeTable" Text="11" TextAlignment="Center" Height="36" TextChanged="OnSettingsControlChanged"/>
                                                         </StackPanel>
                                                     </Grid>
                                                 </StackPanel>
@@ -2409,55 +2433,6 @@
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
-
-                        <!-- ستون ۲ (چپ): پیش‌نمایش زنده سند رسمی PDF / چاپ (با قابلیت اعمال در لحظه تغییرات) -->
-                        <Border Grid.Column="1" Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12" Padding="12">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- نوار ابزار بالای پیش‌نمایش سند -->
-                                <Border Grid.Row="0" Background="{StaticResource SurfaceSubtleBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,0,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <ui:SymbolIcon Symbol="DocumentPdf24" Foreground="{StaticResource PrimaryBrush}" FontSize="18" Margin="0,0,8,0"/>
-                                            <TextBlock Text="پیش‌نمایش زنده سند رسمی (PDF / پرینت)" FontWeight="Bold" FontSize="12.5" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                            <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="10" Padding="6,1" Margin="8,0,0,0">
-                                                <TextBlock Text="به‌روزرسانی آنی" FontSize="10" Foreground="#047857" FontWeight="SemiBold"/>
-                                            </Border>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=ArrowClockwise24}" Content="تازه‌سازی" ToolTip="تازه‌سازی پیش‌نمایش سند" Click="BtnRefreshSettingsPdf_Click" Margin="0,0,4,0"/>
-                                            <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=DocumentPdf24}" Content="صدور PDF نمونه" ToolTip="ذخیره و صدور فایل PDF پیش‌فاکتور نمونه با نام خودکار و باز شدن سریع" Click="BtnExportSamplePdf_Click" Margin="0,0,4,0"/>
-                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Print24}" Content="چاپ مستقیم" ToolTip="چاپ مستقیم روی چاپگر فیزیکی" Click="BtnTestPrintSample_Click"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-
-                                <!-- کادر برگه A4 پیش‌نمایش سند -->
-                                <Border Grid.Row="1" Background="#E2E8F0" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#CBD5E1">
-                                        <Border Background="White" BorderBrush="#94A3B8" BorderThickness="1" Margin="14" HorizontalAlignment="Center">
-                                            <Border.Effect>
-                                                <DropShadowEffect BlurRadius="14" Direction="270" ShadowDepth="4" Opacity="0.25" Color="#0F172A"/>
-                                            </Border.Effect>
-                                            <FlowDocumentScrollViewer x:Name="SettingsPdfViewer" 
-                                                                      HorizontalScrollBarVisibility="Disabled" 
-                                                                      VerticalScrollBarVisibility="Disabled"
-                                                                      IsToolBarVisible="False"
-                                                                      Zoom="80"
-                                                                      Background="White"/>
-                                        </Border>
-                                    </ScrollViewer>
-                                </Border>
-                            </Grid>
-                        </Border>
                     </Grid>
 
                 </Grid>
