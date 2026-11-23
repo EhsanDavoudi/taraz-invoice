@@ -32,7 +32,15 @@ namespace TarazInvoice.Models
         public string ItemName
         {
             get => _itemName;
-            set { if (_itemName != value) { _itemName = value; OnPropertyChanged(); } }
+            set
+            {
+                if (_itemName != value)
+                {
+                    _itemName = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(FullItemName));
+                }
+            }
         }
 
         public string Unit
@@ -209,7 +217,30 @@ namespace TarazInvoice.Models
         public string Description
         {
             get => _description;
-            set { if (_description != value) { _description = value; OnPropertyChanged(); } }
+            set
+            {
+                if (_description != value)
+                {
+                    _description = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(FullItemName));
+                }
+            }
+        }
+
+        /// <summary>
+        /// نام کامل و رسمی کالا جهت درج در PDF و خروجی اکسل (شامل نام کالا و توضیحات در صورت وجود)
+        /// </summary>
+        public string FullItemName
+        {
+            get
+            {
+                string name = (_itemName ?? string.Empty).Trim();
+                string desc = (_description ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(desc)) return name;
+                if (string.IsNullOrWhiteSpace(name)) return $"({desc})";
+                return $"{name} ({desc})";
+            }
         }
 
         /// <summary>

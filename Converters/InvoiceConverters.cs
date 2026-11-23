@@ -193,4 +193,46 @@ namespace TarazInvoice.Converters
             throw new NotImplementedException();
         }
     }
+
+    public class QuantityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is decimal d)
+            {
+                return d == 0 ? "0" : d.ToString("G29", CultureInfo.InvariantCulture);
+            }
+            if (value is double db)
+            {
+                return db == 0 ? "0" : db.ToString("G29", CultureInfo.InvariantCulture);
+            }
+            return "";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null) return 0m;
+            string s = value.ToString() ?? "";
+            s = s.Replace("۰", "0").Replace("۱", "1").Replace("۲", "2").Replace("۳", "3").Replace("۴", "4")
+                 .Replace("۵", "5").Replace("۶", "6").Replace("۷", "7").Replace("۸", "8").Replace("۹", "9")
+                 .Replace(",", "").Replace("،", "").Replace(" ", "").Trim();
+
+            if (string.IsNullOrWhiteSpace(s))
+            {
+                return 0m;
+            }
+
+            s = s.Replace('/', '.').Replace('٫', '.');
+            if (s.EndsWith(".") || s == "-")
+            {
+                return Binding.DoNothing;
+            }
+
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))
+            {
+                return result;
+            }
+            return 0m;
+        }
+    }
 }

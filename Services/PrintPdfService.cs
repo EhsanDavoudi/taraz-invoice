@@ -407,7 +407,7 @@ namespace TarazInvoice.Services
             foreach (var item in invoice.Items)
             {
                 var tr = new TableRow();
-                string itemName = (item.ItemName ?? "").Trim();
+                string itemName = item.FullItemName;
 
                 // available width = column - paragraph margins (8+8) - borders - safety
                 int lines = CountLines(itemName, font, fs, nameColW - 16 - 2 * CellBorder - 4);
@@ -750,14 +750,22 @@ namespace TarazInvoice.Services
 
         public static string GetSafeInvoiceFileName(ProformaInvoice invoice, string extension = "pdf")
         {
-            string num = !string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? invoice.InvoiceNumber.Trim() : "پیش‌فاکتور";
             string comp = !string.IsNullOrWhiteSpace(invoice.CompanyName) ? invoice.CompanyName.Trim() : "";
             string exp = !string.IsNullOrWhiteSpace(invoice.ExpertName) ? invoice.ExpertName.Trim() : "";
+            string title = !string.IsNullOrWhiteSpace(invoice.Title) ? invoice.Title.Trim() : "";
+            string num = !string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? invoice.InvoiceNumber.Trim() : "";
+
+            // الگوی نام‌گذاری مصوب: نام شرکت - نام کارشناس (نام پیش فاکتور) - شماره پیش فاکتور
+            string expertPart = exp;
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                expertPart = !string.IsNullOrWhiteSpace(exp) ? $"{exp} ({title})" : $"({title})";
+            }
 
             var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(num)) parts.Add(num);
             if (!string.IsNullOrWhiteSpace(comp)) parts.Add(comp);
-            if (!string.IsNullOrWhiteSpace(exp)) parts.Add(exp);
+            if (!string.IsNullOrWhiteSpace(expertPart)) parts.Add(expertPart);
+            if (!string.IsNullOrWhiteSpace(num)) parts.Add(num);
 
             string raw = parts.Count > 0 ? string.Join(" - ", parts) : $"پیش‌فاکتور_{DateTime.Now:yyyyMMdd}";
             var invalidChars = Path.GetInvalidFileNameChars();
@@ -767,7 +775,7 @@ namespace TarazInvoice.Services
             safe = string.Join(" ", safe.Split(extraInvalid, StringSplitOptions.RemoveEmptyEntries)).Trim();
 
             while (safe.Contains("  ")) safe = safe.Replace("  ", " ");
-            if (string.IsNullOrWhiteSpace(safe)) safe = $"پیش‌فاکتور_{invoice.InvoiceNumber}";
+            if (string.IsNullOrWhiteSpace(safe)) safe = !string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? $"پیش‌فاکتور_{invoice.InvoiceNumber}" : $"پیش‌فاکتور_{DateTime.Now:yyyyMMdd}";
             return string.IsNullOrWhiteSpace(extension) ? safe : $"{safe}.{extension.TrimStart('.')}";
         }
 

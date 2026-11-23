@@ -229,7 +229,7 @@ namespace TarazInvoice
                 {
                     IcoTopSaveStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Edit24;
                     IcoTopSaveStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#D97706"));
-                    TxtTopSaveStatus.Text = "تغییرات ذخیره‌نشده (Ctrl + S)";
+                    TxtTopSaveStatus.Text = "تغییرات ذخیره‌نشده";
                     TxtTopSaveStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#D97706"));
                     BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFFBEB"));
                     BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FDE68A"));
@@ -238,7 +238,7 @@ namespace TarazInvoice
                 {
                     IcoTopSaveStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle24;
                     IcoTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
-                    TxtTopSaveStatus.Text = _isNewInvoice ? "آماده (Ctrl + S)" : $"ذخیره شد ({DateTime.Now:HH:mm:ss}) - Ctrl+S";
+                    TxtTopSaveStatus.Text = _isNewInvoice ? "آماده" : $"ذخیره شد ({DateTime.Now:HH:mm:ss}) - آخرین تغییرات";
                     TxtTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
                     BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F0FDF4"));
                     BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBF7D0"));
@@ -763,9 +763,6 @@ namespace TarazInvoice
         {
             if (sender is DataGrid dg)
             {
-                // پس از پایان درگ تغییر اندازه ستون، مقدار ستون به پیکسل ثابت تبدیل می‌شود.
-                // با تبدیل مجدد ستون‌ها به وزن‌های ستاره‌ای (Star)، تمام ستون‌ها به صورت هماهنگ مقیاس‌پذیر می‌مانند
-                // و تغییر اندازه ستون‌ها روی تمام ستون‌های دیگر سرشکن می‌شود، نه فقط ستون قبلی یا بعدی.
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     NormalizeColumnsToStar(dg);
@@ -775,13 +772,13 @@ namespace TarazInvoice
 
         private void NormalizeColumnsToStar(DataGrid dg)
         {
-            var visibleColumns = dg.Columns.Where(c => c.Visibility == Visibility.Visible).ToList();
-            if (visibleColumns.Count == 0) return;
+            // فقط ستون‌های قابل ریسایز باید نرمال شوند؛ ستون‌های اندازه ثابت (مانند ردیف یا عملیات) بدون تغییر می‌مانند
+            var resizableColumns = dg.Columns.Where(c => c.Visibility == Visibility.Visible && c.CanUserResize).ToList();
+            if (resizableColumns.Count == 0) return;
 
-            // فقط در صورتی که حداقل یک ستون از حالت درگ تغییر اندازه به پیکسل قطعی تبدیل شده باشد
-            if (visibleColumns.Any(c => c.Width.IsAbsolute))
+            if (resizableColumns.Any(c => c.Width.IsAbsolute))
             {
-                foreach (var col in visibleColumns)
+                foreach (var col in resizableColumns)
                 {
                     if (col.ActualWidth > 0)
                     {
@@ -867,7 +864,8 @@ namespace TarazInvoice
                 invoices = invoices.Where(i =>
                     (i.InvoiceNumber != null && i.InvoiceNumber.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
                     (i.CompanyName != null && i.CompanyName.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
-                    (i.ExpertName != null && i.ExpertName.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    (i.ExpertName != null && i.ExpertName.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                    (i.Title != null && i.Title.Contains(search, StringComparison.OrdinalIgnoreCase))
                 ).ToList();
             }
 
@@ -896,9 +894,108 @@ namespace TarazInvoice
                 invoices = invoices.Where(i => i.CompanyId == comp.Id).ToList();
             }
 
+            // مرتب‌سازی پیش‌فاکتورها: بر اساس کلیک روی سرستون‌های جدول پیش‌فاکتور
+            if (!string.IsNullOrEmpty(_activeColumnSortPath) && _activeColumnSortDirection.HasValue)
+            {
+                invoices = SortInvoiceList(invoices, _activeColumnSortPath, _activeColumnSortDirection.Value);
+                // بروزرسانی نشانگرهای جهت مرتب‌سازی روی ستون‌های جدول
+                foreach (var col in DgrInvoices.Columns)
+                {
+                    col.SortDirection = (col.SortMemberPath == _activeColumnSortPath) ? _activeColumnSortDirection.Value : null;
+                }
+            }
+            else
+            {
+                // حالت پیش‌فرض: جدیدترین تاریخ صدور
+                invoices = invoices.OrderByDescending(i => i.IssueDateShamsi).ThenByDescending(i => i.CreatedAt).ToList();
+            }
+
             DgrInvoices.ItemsSource = invoices;
             UpdateStats();
         }
+
+        private string? _activeColumnSortPath = null;
+        private ListSortDirection? _activeColumnSortDirection = null;
+
+        private void DgrInvoices_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            e.Handled = true; // جلوگیری از رفتار پیش‌فرض و مرتب‌سازی دقیق و بومی
+
+            var column = e.Column;
+            string sortPath = column.SortMemberPath;
+            if (string.IsNullOrEmpty(sortPath)) return;
+
+            ListSortDirection newDirection = ListSortDirection.Ascending;
+            if (_activeColumnSortPath == sortPath && _activeColumnSortDirection == ListSortDirection.Ascending)
+            {
+                newDirection = ListSortDirection.Descending;
+            }
+
+            _activeColumnSortPath = sortPath;
+            _activeColumnSortDirection = newDirection;
+
+            // نمایش آیکون سورت روی ستون انتخاب شده و پاک کردن از سایرین
+            foreach (var col in DgrInvoices.Columns)
+            {
+                col.SortDirection = null;
+            }
+            column.SortDirection = newDirection;
+
+            if (DgrInvoices.ItemsSource is IEnumerable<ProformaInvoice> currentEnum)
+            {
+                var currentList = currentEnum.ToList();
+                if (currentList.Count > 0)
+                {
+                    DgrInvoices.ItemsSource = SortInvoiceList(currentList, sortPath, newDirection);
+                }
+            }
+        }
+
+        private static List<ProformaInvoice> SortInvoiceList(List<ProformaInvoice> list, string sortPath, ListSortDirection direction)
+        {
+            bool asc = direction == ListSortDirection.Ascending;
+            return sortPath switch
+            {
+                nameof(ProformaInvoice.InvoiceNumber) => asc 
+                    ? list.OrderBy(i => StorageService.NormalizeDigits(i.InvoiceNumber)).ToList()
+                    : list.OrderByDescending(i => StorageService.NormalizeDigits(i.InvoiceNumber)).ToList(),
+
+                nameof(ProformaInvoice.CompanyName) => asc
+                    ? list.OrderBy(i => i.CompanyName ?? "").ThenBy(i => i.Title ?? "").ToList()
+                    : list.OrderByDescending(i => i.CompanyName ?? "").ThenByDescending(i => i.Title ?? "").ToList(),
+
+                nameof(ProformaInvoice.ExpertName) => asc
+                    ? list.OrderBy(i => i.ExpertName ?? "").ToList()
+                    : list.OrderByDescending(i => i.ExpertName ?? "").ToList(),
+
+                nameof(ProformaInvoice.IssueDateShamsi) => asc
+                    ? list.OrderBy(i => i.IssueDateShamsi).ThenBy(i => i.CreatedAt).ToList()
+                    : list.OrderByDescending(i => i.IssueDateShamsi).ThenByDescending(i => i.CreatedAt).ToList(),
+
+                nameof(ProformaInvoice.ValidUntilShamsi) => asc
+                    ? list.OrderBy(i => i.ValidUntilShamsi).ThenBy(i => i.CreatedAt).ToList()
+                    : list.OrderByDescending(i => i.ValidUntilShamsi).ThenByDescending(i => i.CreatedAt).ToList(),
+
+                nameof(ProformaInvoice.GrandTotal) => asc
+                    ? list.OrderBy(i => i.GrandTotal).ToList()
+                    : list.OrderByDescending(i => i.GrandTotal).ToList(),
+
+                nameof(ProformaInvoice.GrandTotalWithVat) => asc
+                    ? list.OrderBy(i => i.GrandTotalWithVat).ToList()
+                    : list.OrderByDescending(i => i.GrandTotalWithVat).ToList(),
+
+                nameof(ProformaInvoice.TotalProfit) => asc
+                    ? list.OrderBy(i => i.TotalProfit).ToList()
+                    : list.OrderByDescending(i => i.TotalProfit).ToList(),
+
+                nameof(ProformaInvoice.Status) => asc
+                    ? list.OrderBy(i => (int)i.Status).ToList()
+                    : list.OrderByDescending(i => (int)i.Status).ToList(),
+
+                _ => list
+            };
+        }
+
 
         private void TxtSearchInvoice_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -1315,11 +1412,16 @@ namespace TarazInvoice
                 ExpertName = defaultExpert?.FullName ?? "",
                 ExpertPhone = defaultExpert?.PhoneNumber ?? "",
                 Status = InvoiceStatus.Draft,
-                Notes = !string.IsNullOrWhiteSpace(settings.DefaultTerms) ? settings.DefaultTerms : "۱. فرایند تحویل بار پس از وصول پیش‌پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.\n۲. در صورت تغییر قیمت، پیش‌فاکتور اصلاحی تقدیم می‌گردد.",
-                PaymentTerms = !string.IsNullOrWhiteSpace(settings.PaymentTerms) ? settings.PaymentTerms : "نقد",
-                DeliveryDays = !string.IsNullOrWhiteSpace(settings.DeliveryDays) ? settings.DeliveryDays : "موجود",
+                Notes = settings.DefaultTerms ?? "",
+                PaymentTerms = settings.PaymentTerms ?? "",
+                DeliveryDays = settings.DeliveryDays ?? "",
                 DeliveryLocation = !string.IsNullOrWhiteSpace(settings.DeliveryLocation) ? settings.DeliveryLocation : "مشهد",
                 VatPercent = settings.VatPercent >= 0 ? settings.VatPercent : 10m,
+                CustomerLabelPrefix = !string.IsNullOrWhiteSpace(settings.CustomerLabelPrefix) ? settings.CustomerLabelPrefix : "نام مشتری شرکت محترم ",
+                SignatoryName = !string.IsNullOrWhiteSpace(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش",
+                ValidityText = !string.IsNullOrWhiteSpace(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتورتا پایان روز می باشد.",
+                Attachment = "ندارد",
+                PageNumberText = "یک",
                 Items = new List<InvoiceItem>()
             };
 
@@ -1353,6 +1455,7 @@ namespace TarazInvoice
             }
 
             TxtEditorInvoiceNumber.Text = invoice.InvoiceNumber;
+            TxtEditorInvoiceTitle.Text = invoice.Title ?? "";
             TxtEditorIssueDate.Text = invoice.IssueDateShamsi;
             CmbEditorStatus.SelectedIndex = (int)invoice.Status;
             UpdateApproveButtonVisibility();
@@ -1371,15 +1474,15 @@ namespace TarazInvoice
             CmbEditorCurrencyUnit.SelectedIndex = 0;
 
             // شرایط و توضیحات اختصاصی این پیش‌فاکتور
-            TxtEditorNotes.Text = invoice.Notes;
-            TxtEditorPaymentTerms.Text = !string.IsNullOrWhiteSpace(invoice.PaymentTerms) ? invoice.PaymentTerms : (!string.IsNullOrWhiteSpace(settings.PaymentTerms) ? settings.PaymentTerms : "نقد");
-            TxtEditorDeliveryDays.Text = !string.IsNullOrWhiteSpace(invoice.DeliveryDays) ? invoice.DeliveryDays : (!string.IsNullOrWhiteSpace(settings.DeliveryDays) ? settings.DeliveryDays : "موجود");
+            TxtEditorNotes.Text = invoice.Notes ?? "";
+            TxtEditorPaymentTerms.Text = !string.IsNullOrWhiteSpace(invoice.PaymentTerms) ? invoice.PaymentTerms : (settings.PaymentTerms ?? "");
+            TxtEditorDeliveryDays.Text = !string.IsNullOrWhiteSpace(invoice.DeliveryDays) ? invoice.DeliveryDays : (settings.DeliveryDays ?? "");
             TxtEditorDeliveryLocation.Text = !string.IsNullOrWhiteSpace(invoice.DeliveryLocation) ? invoice.DeliveryLocation : (!string.IsNullOrWhiteSpace(settings.DeliveryLocation) ? settings.DeliveryLocation : "مشهد");
             TxtEditorVatPercent.Text = (invoice.VatPercent >= 0 ? invoice.VatPercent : (settings.VatPercent >= 0 ? settings.VatPercent : 10m)).ToString("G29");
 
             TxtEditorValidityText.Text = !string.IsNullOrWhiteSpace(invoice.ValidityText) ? invoice.ValidityText : (!string.IsNullOrWhiteSpace(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتورتا پایان روز می باشد.");
             TxtEditorSignatoryName.Text = !string.IsNullOrWhiteSpace(invoice.SignatoryName) ? invoice.SignatoryName : (!string.IsNullOrWhiteSpace(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش");
-            TxtEditorExpertRole.Text = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناس خرید:");
+            TxtEditorExpertRole.Text = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (settings.ExpertRoleLabel ?? "");
 
             // وضعیت‌های هایلایت
             ChkHighlightValidity.IsChecked = invoice.HighlightValidity;
@@ -1594,15 +1697,35 @@ namespace TarazInvoice
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
+        private static InvoiceItem? ResolveItemFromSender(object sender)
+        {
+            if (sender is FrameworkElement elem)
+            {
+                if (elem.DataContext is InvoiceItem item1) return item1;
+                if (elem.Tag is InvoiceItem item2) return item2;
+                if ((elem.Parent as FrameworkElement)?.DataContext is InvoiceItem item3) return item3;
+                if (elem is System.Windows.Controls.MenuItem mi && (mi.Parent as FrameworkElement)?.DataContext is InvoiceItem item4) return item4;
+            }
+            return null;
+        }
+
+        private void BtnItemActions_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement btn && btn.ContextMenu != null)
+            {
+                btn.ContextMenu.PlacementTarget = btn;
+                btn.ContextMenu.DataContext = btn.DataContext;
+                btn.ContextMenu.IsOpen = true;
+            }
+        }
+
         private void BtnRemoveItem_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is FrameworkElement btn && btn.DataContext is InvoiceItem item)
+            var item = ResolveItemFromSender(sender) ?? DgrInvoiceItems.SelectedItem as InvoiceItem;
+            if (item != null)
             {
                 _editingItems.Remove(item);
-                for (int i = 0; i < _editingItems.Count; i++)
-                {
-                    _editingItems[i].RowNumber = i + 1;
-                }
+                RenumberEditingItems();
                 RecalculateEditorSummaries();
                 SetDirty(true);
             }
@@ -1610,7 +1733,8 @@ namespace TarazInvoice
 
         private void BtnDuplicateItem_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is FrameworkElement btn && btn.DataContext is InvoiceItem item)
+            var item = ResolveItemFromSender(sender) ?? DgrInvoiceItems.SelectedItem as InvoiceItem;
+            if (item != null)
             {
                 var clone = item.Clone();
                 clone.RowNumber = _editingItems.Count + 1;
@@ -1621,6 +1745,81 @@ namespace TarazInvoice
 
                 DgrInvoiceItems.SelectedItem = clone;
                 DgrInvoiceItems.ScrollIntoView(clone);
+            }
+        }
+
+        private void BtnMoveItemUp_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ResolveItemFromSender(sender) ?? DgrInvoiceItems.SelectedItem as InvoiceItem;
+            if (item != null)
+            {
+                int idx = _editingItems.IndexOf(item);
+                if (idx > 0)
+                {
+                    _editingItems.Move(idx, idx - 1);
+                    RenumberEditingItems();
+                    RecalculateEditorSummaries();
+                    SetDirty(true);
+                    DgrInvoiceItems.SelectedItem = item;
+                }
+            }
+        }
+
+        private void BtnMoveItemDown_Click(object sender, RoutedEventArgs e)
+        {
+            var item = ResolveItemFromSender(sender) ?? DgrInvoiceItems.SelectedItem as InvoiceItem;
+            if (item != null)
+            {
+                int idx = _editingItems.IndexOf(item);
+                if (idx >= 0 && idx < _editingItems.Count - 1)
+                {
+                    _editingItems.Move(idx, idx + 1);
+                    RenumberEditingItems();
+                    RecalculateEditorSummaries();
+                    SetDirty(true);
+                    DgrInvoiceItems.SelectedItem = item;
+                }
+            }
+        }
+
+        private void RenumberEditingItems()
+        {
+            for (int i = 0; i < _editingItems.Count; i++)
+            {
+                _editingItems[i].RowNumber = i + 1;
+            }
+        }
+
+        private void TxtGridQuantity_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox tb)
+            {
+                tb.Focus();
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    tb.SelectAll();
+                }), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        }
+
+        private void TxtGridQuantity_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox tb)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    tb.SelectAll();
+                }), System.Windows.Threading.DispatcherPriority.Input);
+            }
+        }
+
+        private void TxtGridQuantity_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox tb && !tb.IsKeyboardFocusWithin)
+            {
+                e.Handled = true;
+                tb.Focus();
+                tb.SelectAll();
             }
         }
 
@@ -1688,23 +1887,24 @@ namespace TarazInvoice
             }
 
             _currentEditingInvoice.InvoiceNumber = TxtEditorInvoiceNumber.Text.Trim();
+            _currentEditingInvoice.Title = TxtEditorInvoiceTitle.Text?.Trim() ?? "";
             _currentEditingInvoice.IssueDateShamsi = TxtEditorIssueDate.Text?.Trim() ?? JalaliDateHelper.GetCurrentShamsiDate();
             _currentEditingInvoice.ValidUntilShamsi = _currentEditingInvoice.IssueDateShamsi;
             _currentEditingInvoice.Status = (InvoiceStatus)CmbEditorStatus.SelectedIndex;
 
-            _currentEditingInvoice.CustomerLabelPrefix = TxtEditorCustomerPrefix.Text?.Trim() ?? "نام مشتری شرکت محترم ";
+            _currentEditingInvoice.CustomerLabelPrefix = TxtEditorCustomerPrefix.Text?.Trim() ?? "";
             _currentEditingInvoice.Subject = TxtEditorSubject.Text?.Trim() ?? "";
-            _currentEditingInvoice.Attachment = TxtEditorAttachment.Text?.Trim() ?? "ندارد";
-            _currentEditingInvoice.PageNumberText = TxtEditorPageNumberText.Text?.Trim() ?? "یک";
+            _currentEditingInvoice.Attachment = TxtEditorAttachment.Text?.Trim() ?? "";
+            _currentEditingInvoice.PageNumberText = TxtEditorPageNumberText.Text?.Trim() ?? "";
             _currentEditingInvoice.CurrencyUnit = "ریال";
 
-            _currentEditingInvoice.ValidityText = TxtEditorValidityText.Text?.Trim() ?? "اعتبار این پیش فاکتورتا پایان روز می باشد.";
+            _currentEditingInvoice.ValidityText = TxtEditorValidityText.Text?.Trim() ?? "";
             _currentEditingInvoice.Notes = TxtEditorNotes.Text?.Trim() ?? "";
-            _currentEditingInvoice.PaymentTerms = TxtEditorPaymentTerms.Text?.Trim() ?? "نقد";
-            _currentEditingInvoice.DeliveryDays = TxtEditorDeliveryDays.Text?.Trim() ?? "موجود";
-            _currentEditingInvoice.DeliveryLocation = TxtEditorDeliveryLocation.Text?.Trim() ?? "مشهد";
-            _currentEditingInvoice.SignatoryName = TxtEditorSignatoryName.Text?.Trim() ?? "محمد احمدی پور هدش";
-            _currentEditingInvoice.ExpertRoleLabel = TxtEditorExpertRole.Text?.Trim() ?? "کارشناس خرید:";
+            _currentEditingInvoice.PaymentTerms = TxtEditorPaymentTerms.Text?.Trim() ?? "";
+            _currentEditingInvoice.DeliveryDays = TxtEditorDeliveryDays.Text?.Trim() ?? "";
+            _currentEditingInvoice.DeliveryLocation = TxtEditorDeliveryLocation.Text?.Trim() ?? "";
+            _currentEditingInvoice.SignatoryName = TxtEditorSignatoryName.Text?.Trim() ?? "";
+            _currentEditingInvoice.ExpertRoleLabel = TxtEditorExpertRole.Text?.Trim() ?? "";
 
             if (TryParsePercent(TxtEditorVatPercent?.Text, out decimal vat))
             {
@@ -2281,7 +2481,7 @@ namespace TarazInvoice
                 }
                 if (TxtTopSaveStatus != null)
                 {
-                    TxtTopSaveStatus.Text = _isNewInvoice ? "آماده (Ctrl + S)" : $"ذخیره شد ({DateTime.Now:HH:mm:ss}) - Ctrl+S";
+                    TxtTopSaveStatus.Text = _isNewInvoice ? "آماده" : $"ذخیره شد ({DateTime.Now:HH:mm:ss}) - آخرین تغییرات";
                     TxtTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
                 }
                 if (BrdTopSaveStatus != null)
@@ -3269,24 +3469,24 @@ namespace TarazInvoice
                     TxtFontSizeTable.Text = settings.TableFontSize > 0 ? settings.TableFontSize.ToString("0") : "11";
                 }
 
-                if (TxtPaymentTerms != null) TxtPaymentTerms.Text = !string.IsNullOrEmpty(settings.PaymentTerms) ? settings.PaymentTerms : "نقد";
-                if (TxtDeliveryDays != null) TxtDeliveryDays.Text = !string.IsNullOrEmpty(settings.DeliveryDays) ? settings.DeliveryDays : "موجود";
-                if (TxtDeliveryLocation != null) TxtDeliveryLocation.Text = !string.IsNullOrEmpty(settings.DeliveryLocation) ? settings.DeliveryLocation : "مشهد";
+                if (TxtPaymentTerms != null) TxtPaymentTerms.Text = settings.PaymentTerms ?? "";
+                if (TxtDeliveryDays != null) TxtDeliveryDays.Text = settings.DeliveryDays ?? "";
+                if (TxtDeliveryLocation != null) TxtDeliveryLocation.Text = settings.DeliveryLocation ?? "";
                 if (TxtVatPercent != null) TxtVatPercent.Text = settings.VatPercent.ToString("0");
 
-                if (TxtSignatoryName != null) TxtSignatoryName.Text = !string.IsNullOrEmpty(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش";
-                if (TxtExpertRoleLabel != null) TxtExpertRoleLabel.Text = !string.IsNullOrEmpty(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناس خرید:";
-                if (TxtDefaultValidityText != null) TxtDefaultValidityText.Text = !string.IsNullOrEmpty(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.";
+                if (TxtSignatoryName != null) TxtSignatoryName.Text = settings.SignatoryName ?? "";
+                if (TxtExpertRoleLabel != null) TxtExpertRoleLabel.Text = settings.ExpertRoleLabel ?? "";
+                if (TxtDefaultValidityText != null) TxtDefaultValidityText.Text = settings.DefaultValidityText ?? "";
                 if (CmbSettingsCurrencyUnit != null) CmbSettingsCurrencyUnit.SelectedIndex = 0;
 
                 // تنظیمات پیشوند و شمارنده شماره پیش‌فاکتور
                 if (TxtSettingsInvoicePrefix != null)
                 {
-                    TxtSettingsInvoicePrefix.Text = !string.IsNullOrWhiteSpace(settings.InvoicePrefix) ? settings.InvoicePrefix : "ANA 405-";
+                    TxtSettingsInvoicePrefix.Text = settings.InvoicePrefix ?? "";
                 }
                 if (TxtSettingsNextInvoiceNumber != null)
                 {
-                    TxtSettingsNextInvoiceNumber.Text = (settings.NextInvoiceNumber > 0 ? settings.NextInvoiceNumber : 1001).ToString();
+                    TxtSettingsNextInvoiceNumber.Text = (settings.NextInvoiceNumber > 0 ? settings.NextInvoiceNumber : 1).ToString();
                 }
 
                 if (DgrBankAccounts != null)
@@ -3386,7 +3586,7 @@ namespace TarazInvoice
         {
             var settings = _storage.GetSettings();
             settings.SellerName = TxtSellerName.Text?.Trim() ?? "";
-            settings.SellerRegistrationNo = TxtSellerRegistrationNo?.Text?.Trim() ?? "۸۸۶۵۴";
+            settings.SellerRegistrationNo = TxtSellerRegistrationNo?.Text?.Trim() ?? "";
             settings.SellerNationalCode = TxtSellerNatCode.Text?.Trim() ?? "";
             settings.SellerEconomicCode = TxtSellerEcoCode.Text?.Trim() ?? "";
             settings.SellerPhone = TxtSellerPhone.Text?.Trim() ?? "";
@@ -3412,7 +3612,7 @@ namespace TarazInvoice
             var settings = _storage.GetSettings();
             if (TxtSettingsInvoicePrefix != null)
             {
-                settings.InvoicePrefix = TxtSettingsInvoicePrefix.Text?.Trim() ?? "ANA 405-";
+                settings.InvoicePrefix = TxtSettingsInvoicePrefix.Text?.Trim() ?? "";
             }
             if (TxtSettingsNextInvoiceNumber != null)
             {
@@ -3762,13 +3962,13 @@ namespace TarazInvoice
                 settings.BankAccountNumber = "";
                 settings.BankCardNumber = "";
             }
-            settings.PaymentTerms = TxtPaymentTerms.Text?.Trim() ?? "نقد";
-            settings.DeliveryDays = TxtDeliveryDays.Text?.Trim() ?? "موجود";
-            settings.DeliveryLocation = TxtDeliveryLocation.Text?.Trim() ?? "مشهد";
+            settings.PaymentTerms = TxtPaymentTerms.Text?.Trim() ?? "";
+            settings.DeliveryDays = TxtDeliveryDays.Text?.Trim() ?? "";
+            settings.DeliveryLocation = TxtDeliveryLocation.Text?.Trim() ?? "";
 
-            if (TxtSignatoryName != null) settings.SignatoryName = TxtSignatoryName.Text?.Trim() ?? "محمد احمدی پور هدش";
-            if (TxtExpertRoleLabel != null) settings.ExpertRoleLabel = TxtExpertRoleLabel.Text?.Trim() ?? "کارشناس خرید:";
-            if (TxtDefaultValidityText != null) settings.DefaultValidityText = TxtDefaultValidityText.Text?.Trim() ?? "اعتبار این پیش فاکتورتا پایان روز می باشد.";
+            if (TxtSignatoryName != null) settings.SignatoryName = TxtSignatoryName.Text?.Trim() ?? "";
+            if (TxtExpertRoleLabel != null) settings.ExpertRoleLabel = TxtExpertRoleLabel.Text?.Trim() ?? "";
+            if (TxtDefaultValidityText != null) settings.DefaultValidityText = TxtDefaultValidityText.Text?.Trim() ?? "";
             settings.CurrencyUnit = "ریال";
 
             if (decimal.TryParse(TxtVatPercent.Text?.Trim(), out decimal vat) && vat >= 0)
@@ -3803,12 +4003,12 @@ namespace TarazInvoice
         {
             previewSettings = new AppSettings
             {
-                SellerName = !string.IsNullOrWhiteSpace(TxtSellerName?.Text) ? TxtSellerName.Text.Trim() : "شرکت آریان نیرو گستر اترک",
-                SellerRegistrationNo = !string.IsNullOrWhiteSpace(TxtSellerRegistrationNo?.Text) ? TxtSellerRegistrationNo.Text.Trim() : "۸۸۶۵۴",
-                SellerNationalCode = TxtSellerNatCode?.Text?.Trim() ?? "14008765432",
-                SellerEconomicCode = TxtSellerEcoCode?.Text?.Trim() ?? "411567891234",
-                SellerPhone = !string.IsNullOrWhiteSpace(TxtSellerPhone?.Text) ? TxtSellerPhone.Text.Trim() : "۰۵۱۳۷۱۳۲۰۸۴",
-                SellerAddress = !string.IsNullOrWhiteSpace(TxtSellerAddress?.Text) ? TxtSellerAddress.Text.Trim() : "مشهد - خیابان سنایی",
+                SellerName = TxtSellerName?.Text?.Trim() ?? "",
+                SellerRegistrationNo = TxtSellerRegistrationNo?.Text?.Trim() ?? "",
+                SellerNationalCode = TxtSellerNatCode?.Text?.Trim() ?? "",
+                SellerEconomicCode = TxtSellerEcoCode?.Text?.Trim() ?? "",
+                SellerPhone = TxtSellerPhone?.Text?.Trim() ?? "",
+                SellerAddress = TxtSellerAddress?.Text?.Trim() ?? "",
                 CompanyLogoPath = TxtCompanyLogoPath?.Text?.Trim() ?? "",
                 CompanyStampPath = TxtCompanyStampPath?.Text?.Trim() ?? "",
                 LogoWidth = ParseDoubleSafe(TxtLogoWidth?.Text, 68),
@@ -3817,12 +4017,12 @@ namespace TarazInvoice
                 StampHeight = ParseDoubleSafe(TxtStampHeight?.Text, 75),
                 CompanyNameFontFamily = !string.IsNullOrWhiteSpace(CmbFontCompanyName?.Text) ? CmbFontCompanyName.Text.Trim() : "Vazirmatn",
                 TableFontFamily = !string.IsNullOrWhiteSpace(CmbFontTable?.Text) ? CmbFontTable.Text.Trim() : "Vazirmatn",
-                DefaultValidityText = !string.IsNullOrWhiteSpace(TxtDefaultValidityText?.Text) ? TxtDefaultValidityText.Text.Trim() : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.",
-                PaymentTerms = !string.IsNullOrWhiteSpace(TxtPaymentTerms?.Text) ? TxtPaymentTerms.Text.Trim() : "نقد",
-                DeliveryDays = !string.IsNullOrWhiteSpace(TxtDeliveryDays?.Text) ? TxtDeliveryDays.Text.Trim() : "موجود",
-                DeliveryLocation = !string.IsNullOrWhiteSpace(TxtDeliveryLocation?.Text) ? TxtDeliveryLocation.Text.Trim() : "مشهد",
-                SignatoryName = !string.IsNullOrWhiteSpace(TxtSignatoryName?.Text) ? TxtSignatoryName.Text.Trim() : "محمد احمدی پور هدش",
-                ExpertRoleLabel = !string.IsNullOrWhiteSpace(TxtExpertRoleLabel?.Text) ? TxtExpertRoleLabel.Text.Trim() : "کارشناس خرید:",
+                DefaultValidityText = TxtDefaultValidityText?.Text?.Trim() ?? "",
+                PaymentTerms = TxtPaymentTerms?.Text?.Trim() ?? "",
+                DeliveryDays = TxtDeliveryDays?.Text?.Trim() ?? "",
+                DeliveryLocation = TxtDeliveryLocation?.Text?.Trim() ?? "",
+                SignatoryName = TxtSignatoryName?.Text?.Trim() ?? "",
+                ExpertRoleLabel = TxtExpertRoleLabel?.Text?.Trim() ?? "",
                 CurrencyUnit = "ریال",
                 BankAccounts = _settingsBankAccounts?.ToList() ?? new List<BankAccountInfo>()
             };
@@ -3838,18 +4038,18 @@ namespace TarazInvoice
 
             sampleInv = new ProformaInvoice
             {
-                InvoiceNumber = "ANA 405-0000284",
-                IssueDateShamsi = "۱۴۰۵/۰۷/۲۵",
-                Attachment = "ندارد",
-                PageNumberText = "یک",
-                CompanyName = "شرکت محترم مهام صنعت نیشابور",
-                Subject = "قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:",
-                CustomerLabelPrefix = "نام مشتری: شرکت محترم",
+                InvoiceNumber = !string.IsNullOrWhiteSpace(previewSettings.InvoicePrefix) ? $"{previewSettings.InvoicePrefix}0001" : "0001",
+                IssueDateShamsi = JalaliDateHelper.GetCurrentShamsiDate(),
+                Attachment = "",
+                PageNumberText = "۱",
+                CompanyName = "شرکت نمونه خریدار",
+                Subject = "",
+                CustomerLabelPrefix = "",
                 SignatoryName = previewSettings.SignatoryName,
-                ExpertName = "محمد احمدی پور هدش",
+                ExpertName = "",
                 ExpertRoleLabel = previewSettings.ExpertRoleLabel,
                 ValidityText = previewSettings.DefaultValidityText,
-                HighlightValidity = true,
+                HighlightValidity = false,
                 PaymentTerms = previewSettings.PaymentTerms,
                 DeliveryDays = previewSettings.DeliveryDays,
                 DeliveryLocation = previewSettings.DeliveryLocation,

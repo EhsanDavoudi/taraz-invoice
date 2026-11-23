@@ -11,6 +11,9 @@ namespace TarazInvoice.Models
         // شماره اختصاصی پیش‌فاکتور (که از کارشناس مربوطه مشتق شده)
         public string InvoiceNumber { get; set; } = string.Empty;
         
+        // نام / عنوان پیش‌فاکتور
+        public string Title { get; set; } = string.Empty;
+        
         // تاریخ‌های شمسی
         public string IssueDateShamsi { get; set; } = string.Empty;
         public string ValidUntilShamsi { get; set; } = string.Empty;
@@ -53,19 +56,19 @@ namespace TarazInvoice.Models
         public string Attachment { get; set; } = "ندارد";
         public string PageNumberText { get; set; } = "یک";
         public string CustomerLabelPrefix { get; set; } = "نام مشتری شرکت محترم ";
-        public string GreetingText { get; set; } = "احتراما\" قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:";
+        public string GreetingText { get; set; } = string.Empty;
         public string CurrencyUnit { get; set; } = "ریال";
 
         // توضیحات و شرایط پرداخت اختصاصی هر پیش‌فاکتور (مطابق نمونه مصوب)
         public string ValidityText { get; set; } = "اعتبار این پیش فاکتورتا پایان روز می باشد.";
-        public string PaymentTerms { get; set; } = "نقد";
-        public string Notes { get; set; } = "فرایند تحویل بار پس از وصول پیش پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.در صورت تغییر قیمت پیش فاکتور اصلاحی تقدیم میگردد.";
-        public string DeliveryDays { get; set; } = "موجود";
+        public string PaymentTerms { get; set; } = string.Empty;
+        public string Notes { get; set; } = string.Empty;
+        public string DeliveryDays { get; set; } = string.Empty;
         public string DeliveryLocation { get; set; } = "مشهد";
 
         // مسئول امضا و کارشناس
         public string SignatoryName { get; set; } = "محمد احمدی پور هدش";
-        public string ExpertRoleLabel { get; set; } = "کارشناس خرید:";
+        public string ExpertRoleLabel { get; set; } = string.Empty;
 
         // حساب‌های بانکی اختصاصی این پیش‌فاکتور (در صورت عدم تعیین، از تنظیمات سامانه خوانده می‌شود)
         public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>();
@@ -88,6 +91,7 @@ namespace TarazInvoice.Models
             {
                 Id = Guid.NewGuid(),
                 InvoiceNumber = newInvoiceNumber,
+                Title = this.Title,
                 IssueDateShamsi = this.IssueDateShamsi,
                 ValidUntilShamsi = this.ValidUntilShamsi,
                 CompanyId = this.CompanyId,

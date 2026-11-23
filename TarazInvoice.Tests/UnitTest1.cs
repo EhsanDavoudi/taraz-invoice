@@ -1109,14 +1109,16 @@ namespace TarazInvoice.Tests
             {
                 InvoiceNumber = "EXP-REZ-1002",
                 CompanyName = "شرکت پتروشیمی زاگرس",
-                ExpertName = "مهندس محمد رضایی"
+                ExpertName = "مهندس محمد رضایی",
+                Title = "خرید کابل و اتصالات"
             };
 
+            // الگو: نام شرکت - نام کارشناس (نام پیش فاکتور) - شماره پیش فاکتور
             string pdfName = PrintPdfService.GetSafeInvoiceFileName(invoice, "pdf");
-            Assert.Equal("EXP-REZ-1002 - شرکت پتروشیمی زاگرس - مهندس محمد رضایی.pdf", pdfName);
+            Assert.Equal("شرکت پتروشیمی زاگرس - مهندس محمد رضایی (خرید کابل و اتصالات) - EXP-REZ-1002.pdf", pdfName);
 
             string excelName = PrintPdfService.GetSafeInvoiceFileName(invoice, "xlsx");
-            Assert.Equal("EXP-REZ-1002 - شرکت پتروشیمی زاگرس - مهندس محمد رضایی.xlsx", excelName);
+            Assert.Equal("شرکت پتروشیمی زاگرس - مهندس محمد رضایی (خرید کابل و اتصالات) - EXP-REZ-1002.xlsx", excelName);
         }
 
         [Fact]
@@ -1483,26 +1485,40 @@ namespace TarazInvoice.Tests
         [Fact]
         public void Test_GetSafeInvoiceFileName_FormatMatchesSpecification()
         {
+            // سناریو با نام پیش‌فاکتور
             var inv1 = new ProformaInvoice
             {
                 InvoiceNumber = "ANA-405-0000284",
                 CompanyName = "شرکت محترم مهام صنعت نیشابور",
-                ExpertName = "محمد احمدی پور هدش"
+                ExpertName = "محمد احمدی پور هدش",
+                Title = "تجهیزات برق و روشنایی"
             };
 
             string name1 = PrintPdfService.GetSafeInvoiceFileName(inv1, "pdf");
-            Assert.Equal("ANA-405-0000284 - شرکت محترم مهام صنعت نیشابور - محمد احمدی پور هدش.pdf", name1);
+            Assert.Equal("شرکت محترم مهام صنعت نیشابور - محمد احمدی پور هدش (تجهیزات برق و روشنایی) - ANA-405-0000284.pdf", name1);
+
+            // سناریو بدون نام پیش‌فاکتور
+            var inv2 = new ProformaInvoice
+            {
+                InvoiceNumber = "ANA-405-0000284",
+                CompanyName = "شرکت محترم مهام صنعت نیشابور",
+                ExpertName = "محمد احمدی پور هدش",
+                Title = ""
+            };
+
+            string name2 = PrintPdfService.GetSafeInvoiceFileName(inv2, "pdf");
+            Assert.Equal("شرکت محترم مهام صنعت نیشابور - محمد احمدی پور هدش - ANA-405-0000284.pdf", name2);
 
             // سناریوی بدون کارشناس
-            var inv2 = new ProformaInvoice
+            var inv3 = new ProformaInvoice
             {
                 InvoiceNumber = "ANA-405-0000285",
                 CompanyName = "شرکت پتروشیمی رازی",
                 ExpertName = ""
             };
 
-            string name2 = PrintPdfService.GetSafeInvoiceFileName(inv2, "pdf");
-            Assert.Equal("ANA-405-0000285 - شرکت پتروشیمی رازی.pdf", name2);
+            string name3 = PrintPdfService.GetSafeInvoiceFileName(inv3, "pdf");
+            Assert.Equal("شرکت پتروشیمی رازی - ANA-405-0000285.pdf", name3);
         }
 
         [Fact]
@@ -1829,8 +1845,8 @@ namespace TarazInvoice.Tests
                 var storage = new StorageService(dbPath);
                 var settings = storage.GetSettings();
 
-                Assert.Equal("ANA 405-", settings.InvoicePrefix);
-                Assert.Equal(1001, settings.NextInvoiceNumber);
+                Assert.Equal(string.Empty, settings.InvoicePrefix);
+                Assert.Equal(1, settings.NextInvoiceNumber);
 
                 // تغییر تنظیمات و ذخیره
                 settings.InvoicePrefix = "INV-2025-";
@@ -2262,6 +2278,308 @@ namespace TarazInvoice.Tests
             Assert.Equal(System.Windows.Visibility.Collapsed, converter.Convert("تأیید شده", typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
             Assert.Equal(System.Windows.Visibility.Collapsed, converter.Convert((int)InvoiceStatus.Approved, typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
             Assert.Equal(System.Windows.Visibility.Visible, converter.Convert("Draft", typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        [Fact]
+        public void Test_UserApprovedDefaults_And_EmptyBankAccounts()
+        {
+            var invoice = new ProformaInvoice();
+            Assert.Equal("محمد احمدی پور هدش", invoice.SignatoryName);
+            Assert.Equal("اعتبار این پیش فاکتورتا پایان روز می باشد.", invoice.ValidityText);
+            Assert.Equal(10m, invoice.VatPercent);
+            Assert.Equal("مشهد", invoice.DeliveryLocation);
+            Assert.Equal("یک", invoice.PageNumberText);
+            Assert.Equal("ندارد", invoice.Attachment);
+            Assert.Equal("نام مشتری شرکت محترم ", invoice.CustomerLabelPrefix);
+            Assert.Empty(invoice.BankAccounts);
+
+            var settings = new AppSettings();
+            Assert.Equal("محمد احمدی پور هدش", settings.SignatoryName);
+            Assert.Equal("اعتبار این پیش فاکتورتا پایان روز می باشد.", settings.DefaultValidityText);
+            Assert.Equal(10m, settings.VatPercent);
+            Assert.Equal("مشهد", settings.DeliveryLocation);
+            Assert.Equal("نام مشتری شرکت محترم ", settings.CustomerLabelPrefix);
+            Assert.Empty(settings.BankAccounts);
+            Assert.Equal(string.Empty, settings.BankAccountNumber);
+            Assert.Equal(string.Empty, settings.BankCardNumber);
+            Assert.Equal(string.Empty, settings.SellerName);
+        }
+
+        [Fact]
+        public void Test_BugFix_PurgeDefaultMockData_DoesNotDeleteRealData()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_NoPurge_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+
+                var comp = new Company { Name = "شرکت پتروشیمی زاگرس", Phone = "02188888888" };
+                storage.AddOrUpdateCompany(comp);
+
+                var exp = new Expert { FullName = "مهندس محمد رضایی", RoleTitle = "کارشناس خرید", CompanyId = comp.Id };
+                storage.AddOrUpdateExpert(exp);
+
+                var item = new StorageItem { Code = "PRD-101", Name = "کالای صنعتی ۱۰۱", DefaultPrice = 500000 };
+                storage.AddOrUpdateStorageItem(item);
+
+                var inv = new ProformaInvoice
+                {
+                    InvoiceNumber = "EXP-REZ-1001",
+                    CompanyName = "شرکت پتروشیمی زاگرس",
+                    CurrencyUnit = "تومان",
+                    SignatoryName = "محمد احمدی پور هدش",
+                    BankAccounts = new List<BankAccountInfo>
+                    {
+                        new BankAccountInfo
+                        {
+                            BankName = "بانک ملی ایران شعبه مرکزی",
+                            ShebaNumber = "IR95017000000118033698006",
+                            CardNumber = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶",
+                            OwnerName = "شرکت آریان نیرو گستر اترک"
+                        }
+                    }
+                };
+                storage.AddOrUpdateInvoice(inv);
+
+                var s = storage.GetSettings();
+                s.PaymentTerms = "نقد";
+                s.DeliveryLocation = "مشهد";
+                s.DeliveryDays = "موجود";
+                s.SellerAddress = "مشهد- خیابان سنایی";
+                s.BankAccounts.Add(new BankAccountInfo
+                {
+                    BankName = "بانک ملی",
+                    CardNumber = "6037998000000000",
+                    OwnerName = "شرکت آریان نیرو"
+                });
+                storage.SaveSettings(s);
+
+                // بازخوانی از دیسک با نمونه جدید StorageService
+                var reloadedStorage = new StorageService(dbPath);
+
+                Assert.Single(reloadedStorage.GetCompanies());
+                Assert.Equal("شرکت پتروشیمی زاگرس", reloadedStorage.GetCompanies()[0].Name);
+
+                Assert.Single(reloadedStorage.GetExperts());
+                Assert.Equal("مهندس محمد رضایی", reloadedStorage.GetExperts()[0].FullName);
+
+                Assert.Single(reloadedStorage.GetStorageItems());
+                Assert.Equal("PRD-101", reloadedStorage.GetStorageItems()[0].Code);
+
+                Assert.Single(reloadedStorage.GetInvoices());
+                var reloadedInv = reloadedStorage.GetInvoices()[0];
+                Assert.Equal("EXP-REZ-1001", reloadedInv.InvoiceNumber);
+                Assert.Equal("تومان", reloadedInv.CurrencyUnit); // عدم تبدیل اشتباه تومان به ریال
+                Assert.Single(reloadedInv.BankAccounts);
+                Assert.Equal("بانک ملی ایران شعبه مرکزی", reloadedInv.BankAccounts[0].BankName);
+
+                var reloadedSettings = reloadedStorage.GetSettings();
+                Assert.Equal("نقد", reloadedSettings.PaymentTerms);
+                Assert.Equal("مشهد", reloadedSettings.DeliveryLocation);
+                Assert.Equal("موجود", reloadedSettings.DeliveryDays);
+                Assert.Equal("مشهد- خیابان سنایی", reloadedSettings.SellerAddress);
+                Assert.Single(reloadedSettings.BankAccounts);
+                Assert.Equal("بانک ملی", reloadedSettings.BankAccounts[0].BankName);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_BugFix_Resequencing_NoDominoEffect()
+        {
+            var local = new DatabaseModel();
+            local.Settings.InvoicePrefix = "INV-";
+            local.Settings.NextInvoiceNumber = 10;
+            local.Invoices.Add(new ProformaInvoice
+            {
+                Id = Guid.NewGuid(),
+                InvoiceNumber = "INV-1",
+                CreatedAt = DateTime.UtcNow.AddMinutes(-10),
+                UpdatedAt = DateTime.UtcNow.AddMinutes(-10)
+            });
+            local.Invoices.Add(new ProformaInvoice
+            {
+                Id = Guid.NewGuid(),
+                InvoiceNumber = "INV-2", // شماره قانونی غیرتکراری
+                CreatedAt = DateTime.UtcNow.AddMinutes(-5),
+                UpdatedAt = DateTime.UtcNow.AddMinutes(-5)
+            });
+
+            var primary = new DatabaseModel();
+            primary.Settings.InvoicePrefix = "INV-";
+            primary.Settings.NextInvoiceNumber = 10;
+            primary.Invoices.Add(new ProformaInvoice
+            {
+                Id = Guid.NewGuid(),
+                InvoiceNumber = "INV-1", // تکراری با فاکتور اول محلی
+                CreatedAt = DateTime.UtcNow.AddMinutes(-12),
+                UpdatedAt = DateTime.UtcNow.AddMinutes(-12)
+            });
+
+            var merged = StorageService.MergeDatabases(local, primary);
+
+            // باید دقیقاً ۳ فاکتور وجود داشته باشد
+            Assert.Equal(3, merged.Invoices.Count);
+
+            // فاکتور دوم محلی (INV-2) به هیچ وجه نباید تغییر شماره داده باشد (عدم بروز اثر دومینو)
+            Assert.Contains(merged.Invoices, i => i.InvoiceNumber == "INV-2");
+
+            // یکی از دو فاکتور متنازع باید شماره INV-1 را نگه داشته و دیگری INV-10 گرفته باشد
+            Assert.Contains(merged.Invoices, i => i.InvoiceNumber == "INV-1");
+            Assert.Contains(merged.Invoices, i => i.InvoiceNumber == "INV-10");
+        }
+
+        [Fact]
+        public void Test_BugFix_EmptyPrefix_LargeManualNumber_DoesNotJumpCounter()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_CounterJump_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+                var s = storage.GetSettings();
+                s.InvoicePrefix = string.Empty;
+                s.NextInvoiceNumber = 1;
+                storage.SaveSettings(s);
+
+                // ثبت پیش‌فاکتور دستی با شماره بزرگ نجومی (مثلاً تاریخ یا شماره پیگیری ۱۰۰ میلیونی)
+                storage.AddOrUpdateInvoice(new ProformaInvoice
+                {
+                    InvoiceNumber = "14030825",
+                    CompanyName = "مشتری خاص"
+                });
+
+                // شمارنده بعدی نباید به ۱۴۰۳۰۸۲۶ پرش کند
+                string next = storage.GenerateNextUniqueInvoiceNumber();
+                Assert.Equal("1", next);
+                Assert.Equal(2, storage.GetSettings().NextInvoiceNumber);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_BugFix_ProductCode_NoDuplicatesAfterDeletion()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_PrdCode_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+
+                var p1 = new StorageItem { Name = "کالای ۱" };
+                storage.AddOrUpdateStorageItem(p1);
+                Assert.Equal("PRD-101", p1.Code);
+
+                var p2 = new StorageItem { Name = "کالای ۲" };
+                storage.AddOrUpdateStorageItem(p2);
+                Assert.Equal("PRD-102", p2.Code);
+
+                var p3 = new StorageItem { Name = "کالای ۳" };
+                storage.AddOrUpdateStorageItem(p3);
+                Assert.Equal("PRD-103", p3.Code);
+
+                // حذف کالای ۲
+                storage.DeleteStorageItem(p2.Id);
+
+                // کالای جدید نباید دوباره PRD-103 بگیرد (تکراری با کالای ۳)
+                var p4 = new StorageItem { Name = "کالای ۴" };
+                storage.AddOrUpdateStorageItem(p4);
+                Assert.Equal("PRD-104", p4.Code);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_BugFix_PersianTextNormalization_AndTombstoning()
+        {
+            var local = new DatabaseModel();
+            var c1 = new Company
+            {
+                Id = Guid.NewGuid(),
+                Name = "شرکت پتروشیمی زاگرس",
+                UpdatedAt = DateTime.UtcNow.AddMinutes(5) // محلی جدیدتر است
+            };
+            local.Companies.Add(c1);
+
+            var primary = new DatabaseModel();
+            var c2 = new Company
+            {
+                Id = Guid.NewGuid(),
+                Name = "شركت پتروشيمي زاگرس", // ي و ك عربی
+                UpdatedAt = DateTime.UtcNow
+            };
+            primary.Companies.Add(c2);
+
+            var merged = StorageService.MergeDatabases(local, primary);
+
+            // باید به عنوان یک شرکت تشخیص داده شده و یکی ادغام شود
+            Assert.Single(merged.Companies);
+            Assert.Equal(c1.Id, merged.Companies[0].Id); // c1 برنده شد
+
+            // شناسه شرکت بازنده باید در DeletedIds قرار گیرد تا نوسان ادغام رخ ندهد
+            Assert.Contains(c2.Id, merged.DeletedIds);
+        }
+
+        [Fact]
+        public void Test_Item_FullItemName_Formatting()
+        {
+            var item1 = new InvoiceItem
+            {
+                ItemName = "کابلشو",
+                Description = "معادل 20 متر"
+            };
+            Assert.Equal("کابلشو (معادل 20 متر)", item1.FullItemName);
+
+            var item2 = new InvoiceItem
+            {
+                ItemName = "لوله پلیکا",
+                Description = ""
+            };
+            Assert.Equal("لوله پلیکا", item2.FullItemName);
+
+            var item3 = new InvoiceItem
+            {
+                ItemName = "پیچ و مهره",
+                Description = null!
+            };
+            Assert.Equal("پیچ و مهره", item3.FullItemName);
+        }
+
+        [Fact]
+        public void Test_QuantityConverter()
+        {
+            var conv = new TarazInvoice.Converters.QuantityConverter();
+            // Convert to string
+            Assert.Equal("5", conv.Convert(5m, typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal("12.5", conv.Convert(12.5m, typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal("0", conv.Convert(0m, typeof(string), null, System.Globalization.CultureInfo.InvariantCulture));
+
+            // ConvertBack from string
+            Assert.Equal(5m, conv.ConvertBack("5", typeof(decimal), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(12.5m, conv.ConvertBack("12.5", typeof(decimal), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(10m, conv.ConvertBack("۱۰", typeof(decimal), null, System.Globalization.CultureInfo.InvariantCulture));
+            // Empty string returns 0m (allows clearing input)
+            Assert.Equal(0m, conv.ConvertBack("", typeof(decimal), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(0m, conv.ConvertBack("   ", typeof(decimal), null, System.Globalization.CultureInfo.InvariantCulture));
         }
     }
 }

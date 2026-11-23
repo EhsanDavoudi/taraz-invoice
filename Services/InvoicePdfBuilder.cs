@@ -258,7 +258,7 @@ namespace TarazInvoice.Services
                         int idx = 1;
                         foreach (var item in invoice.Items)
                         {
-                            string name = (item.ItemName ?? "").Trim();
+                            string name = item.FullItemName;
 
                             // item-name column ~334px minus cell padding/border
                             int lines = PrintPdfService.CountLines(name, s.TableFontFamily ?? PrintPdfService.DefaultFont, fs, 320);

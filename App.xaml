@@ -510,6 +510,134 @@
                 </Setter>
             </Style>
 
+            <!-- استایل مدرن ملایم دکمه خروجی اکسل (Soft Emerald Excel Button) -->
+            <Style x:Key="ExcelExportButton" TargetType="ui:Button">
+                <Setter Property="Background" Value="#F0FDF4"/>
+                <Setter Property="BorderBrush" Value="#86EFAC"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Foreground" Value="#15803D"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ui:Button">
+                            <Border x:Name="excelBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="excelBorder" Property="Background" Value="#DCFCE7"/>
+                                    <Setter TargetName="excelBorder" Property="BorderBrush" Value="#4ADE80"/>
+                                    <Setter Property="Foreground" Value="#166534"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="excelBorder" Property="Background" Value="#BBF7D0"/>
+                                    <Setter TargetName="excelBorder" Property="BorderBrush" Value="#22C55E"/>
+                                    <Setter Property="Foreground" Value="#14532D"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- استایل مدرن ملایم دکمه خروجی PDF (Soft Crimson PDF Button) -->
+            <Style x:Key="PdfExportButton" TargetType="ui:Button">
+                <Setter Property="Background" Value="#FEF2F2"/>
+                <Setter Property="BorderBrush" Value="#FECACA"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Foreground" Value="#DC2626"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ui:Button">
+                            <Border x:Name="pdfBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="pdfBorder" Property="Background" Value="#FEE2E2"/>
+                                    <Setter TargetName="pdfBorder" Property="BorderBrush" Value="#F87171"/>
+                                    <Setter Property="Foreground" Value="#B91C1C"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="pdfBorder" Property="Background" Value="#FECDD3"/>
+                                    <Setter TargetName="pdfBorder" Property="BorderBrush" Value="#EF4444"/>
+                                    <Setter Property="Foreground" Value="#991B1B"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- استایل مدرن ملایم دکمه چاپ و پیش‌نمایش (Soft Cobalt Print Button) -->
+            <Style x:Key="PrintExportButton" TargetType="ui:Button">
+                <Setter Property="Background" Value="#EFF6FF"/>
+                <Setter Property="BorderBrush" Value="#BFDBFE"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Foreground" Value="#1D4ED8"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ui:Button">
+                            <Border x:Name="printBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="printBorder" Property="Background" Value="#DBEAFE"/>
+                                    <Setter TargetName="printBorder" Property="BorderBrush" Value="#93C5FD"/>
+                                    <Setter Property="Foreground" Value="#1E40AF"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="printBorder" Property="Background" Value="#BFDBFE"/>
+                                    <Setter TargetName="printBorder" Property="BorderBrush" Value="#3B82F6"/>
+                                    <Setter Property="Foreground" Value="#1E3A8A"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- استایل ملایم دکمه بازگشت و انصراف (Soft Slate Return Button) -->
+            <Style x:Key="ReturnActionButton" TargetType="ui:Button">
+                <Setter Property="Background" Value="#F8FAFC"/>
+                <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Foreground" Value="#475569"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ui:Button">
+                            <Border x:Name="retBorder" CornerRadius="7" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="retBorder" Property="Background" Value="#F1F5F9"/>
+                                    <Setter TargetName="retBorder" Property="BorderBrush" Value="#94A3B8"/>
+                                    <Setter Property="Foreground" Value="#1E293B"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="retBorder" Property="Background" Value="#E2E8F0"/>
+                                    <Setter TargetName="retBorder" Property="BorderBrush" Value="#64748B"/>
+                                    <Setter Property="Foreground" Value="#0F172A"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- استایل DataGrid استاندارد سازمانی با خطوط تفکیک سراسری، هدر شفاف و سطر پیوسته -->
             <Style TargetType="DataGrid">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
@@ -530,7 +658,7 @@
                 <Setter Property="SelectionUnit" Value="FullRow"/>
             </Style>
 
-            <!-- سرستون‌های DataGrid: کاملاً در مرکز با خطوط تفکیک زیرین و راست -->
+            <!-- سرستون‌های DataGrid: کاملاً در مرکز با خطوط تفکیک زیرین و راست همراه با نشانگر مرتب‌سازی هوشمند -->
             <Style TargetType="DataGridColumnHeader">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
                 <Setter Property="Background" Value="#F8FAFC"/>
@@ -538,11 +666,56 @@
                 <Setter Property="FontWeight" Value="Bold"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Height" Value="46"/>
-                <Setter Property="Padding" Value="8,0"/>
+                <Setter Property="Padding" Value="6,0"/>
                 <Setter Property="BorderBrush" Value="#CBD5E1"/>
                 <Setter Property="BorderThickness" Value="0,0,1,1"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="DataGridColumnHeader">
+                            <Border Background="{TemplateBinding Background}" 
+                                    BorderBrush="{TemplateBinding BorderBrush}" 
+                                    BorderThickness="{TemplateBinding BorderThickness}" 
+                                    Padding="{TemplateBinding Padding}" 
+                                    SnapsToDevicePixels="True">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                        <Grid x:Name="SortIconContainer" Margin="4,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                                            <!-- آیکون خنثی قبل از سورت (نشان‌دهنده قابل سورت بودن) -->
+                                            <ui:SymbolIcon x:Name="SortIconNeutral" Symbol="ArrowSort20" FontSize="11" Foreground="#94A3B8"/>
+                                            <!-- آیکون صعودی -->
+                                            <ui:SymbolIcon x:Name="SortIconAsc" Symbol="ArrowUp20" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Visibility="Collapsed"/>
+                                            <!-- آیکون نزولی -->
+                                            <ui:SymbolIcon x:Name="SortIconDesc" Symbol="ArrowDown20" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Visibility="Collapsed"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="CanUserSort" Value="True">
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter TargetName="SortIconContainer" Property="Visibility" Value="Visible"/>
+                                    <Setter Property="ToolTip" Value="کلیک جهت مرتب‌سازی این ستون"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                </Trigger>
+                                <Trigger Property="SortDirection" Value="Ascending">
+                                    <Setter TargetName="SortIconNeutral" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="SortIconAsc" Property="Visibility" Value="Visible"/>
+                                    <Setter TargetName="SortIconDesc" Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                                <Trigger Property="SortDirection" Value="Descending">
+                                    <Setter TargetName="SortIconNeutral" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="SortIconAsc" Property="Visibility" Value="Collapsed"/>
+                                    <Setter TargetName="SortIconDesc" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <!-- سلول‌های DataGrid: پر کردن تمام ارتفاع سطر و ترازبندی در مرکز بدون شکستگی خطوط -->
@@ -603,6 +776,7 @@
             <converters:NullablePercentConverter x:Key="NullablePercentConverter"/>
             <converters:NullablePercentDisplayConverter x:Key="NullablePercentDisplayConverter"/>
             <converters:NotApprovedToVisibilityConverter x:Key="NotApprovedToVisibilityConverter"/>
+            <converters:QuantityConverter x:Key="QuantityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

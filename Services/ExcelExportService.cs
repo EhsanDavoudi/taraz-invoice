@@ -118,7 +118,7 @@ namespace TarazInvoice.Services
 
                 worksheet.Cell(currentRow, colRow).Value = item.RowNumber;
                 var templateCellName = worksheet.Cell(currentRow, colName);
-                templateCellName.Value = item.ItemName;
+                templateCellName.Value = item.FullItemName;
                 templateCellName.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
                 templateCellName.Style.Alignment.ReadingOrder = XLAlignmentReadingOrderValues.RightToLeft;
                 templateCellName.Style.Alignment.WrapText = true;
@@ -281,7 +281,7 @@ namespace TarazInvoice.Services
                 var row = ws.Row(rowIdx);
 
                 // محاسبه ارتفاع سطر: ۳۲ پیکسل برای یک خط، دو برابر (۶۴) برای دو خط و متناسب برای خطوط بیشتر
-                string itemNameStr = item.ItemName ?? "";
+                string itemNameStr = item.FullItemName;
                 int charCount = itemNameStr.Length;
                 int explicitLines = itemNameStr.Split('\n').Length;
                 int wrapLines = (int)Math.Ceiling(Math.Max(1, charCount) / 48.0);

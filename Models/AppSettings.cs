@@ -8,20 +8,20 @@ namespace TarazInvoice.Models
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         // اطلاعات شرکت ما (فروشنده)
-        public string SellerName { get; set; } = "شرکت آریان نیرو گستر اترک";
-        public string SellerNationalCode { get; set; } = "14008765432";
-        public string SellerEconomicCode { get; set; } = "411567891234";
-        public string SellerRegistrationNo { get; set; } = "۸۸۶۵۴";
-        public string SellerPhone { get; set; } = "۵- ۰۵۱۳۷۱۳۲۰۸۴";
-        public string SellerAddress { get; set; } = "مشهد- خیابان سنایی- بین سنایی ۱۲ و ۱۴- روبروی سنایی ۱۵- پلاک ۱۱۵";
-        public string SellerPostalCode { get; set; } = "1968634567";
+        public string SellerName { get; set; } = string.Empty;
+        public string SellerNationalCode { get; set; } = string.Empty;
+        public string SellerEconomicCode { get; set; } = string.Empty;
+        public string SellerRegistrationNo { get; set; } = string.Empty;
+        public string SellerPhone { get; set; } = string.Empty;
+        public string SellerAddress { get; set; } = string.Empty;
+        public string SellerPostalCode { get; set; } = string.Empty;
 
         // مسئول امضا، سربرگ و عبارات استاندارد پیش‌فاکتور
         public string SignatoryName { get; set; } = "محمد احمدی پور هدش";
-        public string ExpertRoleLabel { get; set; } = "کارشناس خرید:";
+        public string ExpertRoleLabel { get; set; } = string.Empty;
         public string DefaultValidityText { get; set; } = "اعتبار این پیش فاکتورتا پایان روز می باشد.";
         public string CustomerLabelPrefix { get; set; } = "نام مشتری شرکت محترم ";
-        public string GreetingText { get; set; } = "احتراما\" قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:";
+        public string GreetingText { get; set; } = string.Empty;
 
         // تصویر لوگو و مهر و امضا
         public string CompanyLogoPath { get; set; } = string.Empty;
@@ -40,20 +40,20 @@ namespace TarazInvoice.Models
         // اطلاعات مالی و بانکی پیش‌فاکتور (پشتیبانی از چندین حساب بانکی، شماره شبا و شماره کارت ذخیره‌شده در دیتابیس توسط کاربر)
         public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>();
 
-        public string BankAccountNumber { get; set; } = "";
-        public string BankCardNumber { get; set; } = "";
-        public string PaymentTerms { get; set; } = "نقد";
-        public string DeliveryDays { get; set; } = "موجود";
+        public string BankAccountNumber { get; set; } = string.Empty;
+        public string BankCardNumber { get; set; } = string.Empty;
+        public string PaymentTerms { get; set; } = string.Empty;
+        public string DeliveryDays { get; set; } = string.Empty;
         public string DeliveryLocation { get; set; } = "مشهد";
-        public decimal VatPercent { get; set; } = 10m; // ارزش افزوده (۱۰٪)
+        public decimal VatPercent { get; set; } = 10m;
 
         // تنظیمات عمومی (همیشه بر اساس ریال)
         public string CurrencyUnit { get; set; } = "ریال";
-        public string DefaultTerms { get; set; } = "فرایند تحویل بار پس از وصول پیش پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.در صورت تغییر قیمت پیش فاکتور اصلاحی تقدیم میگردد.";
+        public string DefaultTerms { get; set; } = string.Empty;
 
         // تنظیمات پیشوند و شماره‌گذاری یکتای پیش‌فاکتور
-        public string InvoicePrefix { get; set; } = "ANA 405-";
-        public int NextInvoiceNumber { get; set; } = 1001;
+        public string InvoicePrefix { get; set; } = string.Empty;
+        public int NextInvoiceNumber { get; set; } = 1;
 
         // مسیر پوشه اختصاصی / شبکه پایگاه‌داده
         public string CustomDatabaseFolder { get; set; } = string.Empty;
