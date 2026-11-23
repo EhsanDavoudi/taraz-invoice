@@ -17,6 +17,7 @@ namespace TarazInvoice.Services
         public List<ProformaInvoice> Invoices { get; set; } = new List<ProformaInvoice>();
         public List<StorageItem> StorageItems { get; set; } = new List<StorageItem>();
         public AppSettings Settings { get; set; } = new AppSettings();
+        public List<Guid> DeletedIds { get; set; } = new List<Guid>();
     }
 
     public class DbLocationConfig
@@ -65,21 +66,29 @@ namespace TarazInvoice.Services
 
         public StorageService(string? customFilePath = null)
         {
-            _localDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
-            if (!Directory.Exists(_localDirectory))
-            {
-                Directory.CreateDirectory(_localDirectory);
-            }
-            _localFilePath = Path.Combine(_localDirectory, "database.json");
-            _locationConfigPath = Path.Combine(_localDirectory, "db_location.json");
-
             if (!string.IsNullOrWhiteSpace(customFilePath))
             {
-                _primaryDirectory = Path.GetDirectoryName(customFilePath);
+                string dir = Path.GetDirectoryName(customFilePath) ?? AppDomain.CurrentDomain.BaseDirectory;
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                _localDirectory = dir;
+                _localFilePath = customFilePath;
+                _locationConfigPath = Path.Combine(dir, "db_location.json");
+                _primaryDirectory = dir;
                 _primaryFilePath = customFilePath;
             }
             else
             {
+                _localDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+                if (!Directory.Exists(_localDirectory))
+                {
+                    Directory.CreateDirectory(_localDirectory);
+                }
+                _localFilePath = Path.Combine(_localDirectory, "database.json");
+                _locationConfigPath = Path.Combine(_localDirectory, "db_location.json");
+
                 string? savedFolder = LoadLocationConfig();
                 if (!string.IsNullOrWhiteSpace(savedFolder))
                 {
@@ -238,6 +247,7 @@ namespace TarazInvoice.Services
                 if (localModel != null)
                 {
                     _data = localModel;
+                    SaveToFileInternal(_localFilePath, _data);
                 }
                 else
                 {
@@ -413,6 +423,73 @@ namespace TarazInvoice.Services
             return null;
         }
 
+        private static readonly HashSet<string> _defaultMockCompanyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "شرکت پتروشیمی زاگرس",
+            "مجتمع صنعتی فولاد البرز"
+        };
+
+        private static readonly HashSet<string> _defaultMockExpertNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "مهندس محمد رضایی",
+            "مهندس سارا محمدی"
+        };
+
+        private static readonly HashSet<string> _defaultMockInvoiceNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "EXP-REZ-1001",
+            "EXP-REZ-1002",
+            "EXP-SM-2001"
+        };
+
+        private static readonly HashSet<string> _defaultMockProductCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "PRD-101",
+            "PRD-102",
+            "PRD-103",
+            "PRD-104",
+            "PRD-105"
+        };
+
+        private static void PurgeDefaultMockData(DatabaseModel model)
+        {
+            model.DeletedIds ??= new List<Guid>();
+
+            // پاکسازی شرکت‌های دمو
+            var mockCompanies = model.Companies.Where(c => _defaultMockCompanyNames.Contains(c.Name?.Trim() ?? "")).ToList();
+            foreach (var c in mockCompanies)
+            {
+                if (!model.DeletedIds.Contains(c.Id)) model.DeletedIds.Add(c.Id);
+                model.Companies.Remove(c);
+            }
+
+            // پاکسازی کارشناسان دمو
+            var mockExperts = model.Experts.Where(e => _defaultMockExpertNames.Contains(e.FullName?.Trim() ?? "")).ToList();
+            foreach (var e in mockExperts)
+            {
+                if (!model.DeletedIds.Contains(e.Id)) model.DeletedIds.Add(e.Id);
+                model.Experts.Remove(e);
+            }
+
+            // پاکسازی فاکتورهای دمو
+            var mockInvoices = model.Invoices.Where(i =>
+                _defaultMockInvoiceNumbers.Contains(i.InvoiceNumber?.Trim() ?? "") ||
+                _defaultMockCompanyNames.Contains(i.CompanyName?.Trim() ?? "")).ToList();
+            foreach (var i in mockInvoices)
+            {
+                if (!model.DeletedIds.Contains(i.Id)) model.DeletedIds.Add(i.Id);
+                model.Invoices.Remove(i);
+            }
+
+            // پاکسازی کالاهای دمو
+            var mockItems = model.StorageItems.Where(s => _defaultMockProductCodes.Contains(s.Code?.Trim() ?? "")).ToList();
+            foreach (var s in mockItems)
+            {
+                if (!model.DeletedIds.Contains(s.Id)) model.DeletedIds.Add(s.Id);
+                model.StorageItems.Remove(s);
+            }
+        }
+
         private static void NormalizeModel(DatabaseModel model)
         {
             model.StorageItems ??= new List<StorageItem>();
@@ -420,6 +497,20 @@ namespace TarazInvoice.Services
             model.Experts ??= new List<Expert>();
             model.Invoices ??= new List<ProformaInvoice>();
             model.Settings ??= new AppSettings();
+            model.DeletedIds ??= new List<Guid>();
+
+            // حذف داده‌های پیش‌فرض دمو در صورت وجود
+            PurgeDefaultMockData(model);
+
+            // اعمال شناسه‌های حذف شده تا رکوردهای حذف شده در حافظه نمانند
+            if (model.DeletedIds != null && model.DeletedIds.Count > 0)
+            {
+                var delSet = new HashSet<Guid>(model.DeletedIds);
+                model.Invoices.RemoveAll(i => delSet.Contains(i.Id));
+                model.Companies.RemoveAll(c => delSet.Contains(c.Id));
+                model.Experts.RemoveAll(e => delSet.Contains(e.Id));
+                model.StorageItems.RemoveAll(s => delSet.Contains(s.Id));
+            }
 
             if (string.IsNullOrWhiteSpace(model.Settings.InvoicePrefix))
             {
@@ -451,11 +542,6 @@ namespace TarazInvoice.Services
                         OwnerName = "شرکت آریان نیرو گستر اترک"
                     }
                 };
-            }
-
-            if (model.StorageItems.Count == 0)
-            {
-                PopulateDefaultStorageItems(model.StorageItems);
             }
         }
 
@@ -595,15 +681,34 @@ namespace TarazInvoice.Services
         {
             var merged = new DatabaseModel();
 
+            // ۰. ادغام شناسه‌های حذف‌شده (Tombstones) تا هیچ رکوردی پس از حذف بازنگردد
+            var mergedDeletedIds = new HashSet<Guid>(local.DeletedIds ?? Enumerable.Empty<Guid>());
+            if (primary.DeletedIds != null)
+            {
+                foreach (var id in primary.DeletedIds)
+                {
+                    mergedDeletedIds.Add(id);
+                }
+            }
+            merged.DeletedIds = mergedDeletedIds.ToList();
+
             // ۱. ادغام پیش‌فاکتورها (Invoices) بر اساس شناسه و زمان بروزرسانی
             var invoiceMap = new Dictionary<Guid, ProformaInvoice>();
             foreach (var inv in primary.Invoices)
             {
-                invoiceMap[inv.Id] = inv;
+                if (!mergedDeletedIds.Contains(inv.Id))
+                {
+                    invoiceMap[inv.Id] = inv;
+                }
             }
 
             foreach (var localInv in local.Invoices)
             {
+                if (mergedDeletedIds.Contains(localInv.Id))
+                {
+                    continue;
+                }
+
                 if (invoiceMap.TryGetValue(localInv.Id, out var existing))
                 {
                     if (localInv.UpdatedAt > existing.UpdatedAt)
@@ -627,8 +732,8 @@ namespace TarazInvoice.Services
                 if (string.IsNullOrWhiteSpace(normNum) || usedNumbers.Contains(normNum))
                 {
                     // در صورت تکرار شماره به علت صدور همزمان آفلاین، شماره جدید یکتا داده می‌شود
-                    string pref = !string.IsNullOrWhiteSpace(primary.Settings.InvoicePrefix) ? primary.Settings.InvoicePrefix : "ANA 405-";
-                    int nextCandidate = Math.Max(primary.Settings.NextInvoiceNumber, local.Settings.NextInvoiceNumber);
+                    string pref = !string.IsNullOrWhiteSpace(primary.Settings?.InvoicePrefix) ? primary.Settings.InvoicePrefix : "ANA 405-";
+                    int nextCandidate = Math.Max(primary.Settings?.NextInvoiceNumber ?? 1001, local.Settings?.NextInvoiceNumber ?? 1001);
                     while (usedNumbers.Contains(NormalizeDigits($"{pref}{nextCandidate}")))
                     {
                         nextCandidate++;
@@ -646,9 +751,20 @@ namespace TarazInvoice.Services
 
             // ۲. ادغام شرکت‌ها (Companies)
             var companyMap = new Dictionary<Guid, Company>();
-            foreach (var c in primary.Companies) companyMap[c.Id] = c;
+            foreach (var c in primary.Companies)
+            {
+                if (!mergedDeletedIds.Contains(c.Id))
+                {
+                    companyMap[c.Id] = c;
+                }
+            }
             foreach (var lc in local.Companies)
             {
+                if (mergedDeletedIds.Contains(lc.Id))
+                {
+                    continue;
+                }
+
                 if (companyMap.TryGetValue(lc.Id, out var existing))
                 {
                     if (lc.UpdatedAt > existing.UpdatedAt) companyMap[lc.Id] = lc;
@@ -670,9 +786,20 @@ namespace TarazInvoice.Services
 
             // ۳. ادغام کارشناسان (Experts)
             var expertMap = new Dictionary<Guid, Expert>();
-            foreach (var exp in primary.Experts) expertMap[exp.Id] = exp;
+            foreach (var exp in primary.Experts)
+            {
+                if (!mergedDeletedIds.Contains(exp.Id))
+                {
+                    expertMap[exp.Id] = exp;
+                }
+            }
             foreach (var le in local.Experts)
             {
+                if (mergedDeletedIds.Contains(le.Id))
+                {
+                    continue;
+                }
+
                 if (expertMap.TryGetValue(le.Id, out var existing))
                 {
                     if (le.UpdatedAt > existing.UpdatedAt) expertMap[le.Id] = le;
@@ -694,9 +821,20 @@ namespace TarazInvoice.Services
 
             // ۴. ادغام کالاهای انبار (StorageItems)
             var storageMap = new Dictionary<Guid, StorageItem>();
-            foreach (var itm in primary.StorageItems) storageMap[itm.Id] = itm;
+            foreach (var itm in primary.StorageItems)
+            {
+                if (!mergedDeletedIds.Contains(itm.Id))
+                {
+                    storageMap[itm.Id] = itm;
+                }
+            }
             foreach (var li in local.StorageItems)
             {
+                if (mergedDeletedIds.Contains(li.Id))
+                {
+                    continue;
+                }
+
                 if (storageMap.TryGetValue(li.Id, out var existing))
                 {
                     if (li.UpdatedAt > existing.UpdatedAt) storageMap[li.Id] = li;
@@ -939,6 +1077,7 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 company.UpdatedAt = DateTime.Now;
+                _data.DeletedIds.Remove(company.Id);
                 var existing = _data.Companies.FirstOrDefault(c => c.Id == company.Id);
                 if (existing != null)
                 {
@@ -960,6 +1099,10 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 _data.Companies.RemoveAll(c => c.Id == companyId);
+                if (!_data.DeletedIds.Contains(companyId))
+                {
+                    _data.DeletedIds.Add(companyId);
+                }
                 SaveInternal(_data);
             }
             DataChanged?.Invoke();
@@ -972,6 +1115,7 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 expert.UpdatedAt = DateTime.Now;
+                _data.DeletedIds.Remove(expert.Id);
                 var existing = _data.Experts.FirstOrDefault(e => e.Id == expert.Id);
                 if (existing != null)
                 {
@@ -993,6 +1137,10 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 _data.Experts.RemoveAll(e => e.Id == expertId);
+                if (!_data.DeletedIds.Contains(expertId))
+                {
+                    _data.DeletedIds.Add(expertId);
+                }
                 SaveInternal(_data);
             }
             DataChanged?.Invoke();
@@ -1005,6 +1153,7 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 invoice.UpdatedAt = DateTime.Now;
+                _data.DeletedIds.Remove(invoice.Id);
                 var existing = _data.Invoices.FirstOrDefault(i => i.Id == invoice.Id);
                 if (existing != null)
                 {
@@ -1026,6 +1175,10 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 _data.Invoices.RemoveAll(i => i.Id == invoiceId);
+                if (!_data.DeletedIds.Contains(invoiceId))
+                {
+                    _data.DeletedIds.Add(invoiceId);
+                }
                 SaveInternal(_data);
             }
             DataChanged?.Invoke();
@@ -1087,6 +1240,19 @@ namespace TarazInvoice.Services
                 StringComparer.OrdinalIgnoreCase
             );
 
+            string normalizedPref = NormalizeDigits(pref);
+            foreach (var num in existingNumbers)
+            {
+                if (num.StartsWith(normalizedPref, StringComparison.OrdinalIgnoreCase))
+                {
+                    string suffix = num.Substring(normalizedPref.Length).Trim();
+                    if (int.TryParse(suffix, out int parsedVal) && parsedVal >= currentNum)
+                    {
+                        currentNum = parsedVal + 1;
+                    }
+                }
+            }
+
             while (existingNumbers.Contains(NormalizeDigits($"{pref}{currentNum}")))
             {
                 currentNum++;
@@ -1133,6 +1299,7 @@ namespace TarazInvoice.Services
             lock (_lock)
             {
                 CheckAndReloadIfDiskChanged();
+                _data.DeletedIds.Remove(item.Id);
                 var existing = _data.StorageItems.FirstOrDefault(p => p.Id == item.Id);
                 if (existing != null)
                 {
@@ -1161,6 +1328,10 @@ namespace TarazInvoice.Services
             {
                 CheckAndReloadIfDiskChanged();
                 _data.StorageItems.RemoveAll(p => p.Id == itemId);
+                if (!_data.DeletedIds.Contains(itemId))
+                {
+                    _data.DeletedIds.Add(itemId);
+                }
                 SaveInternal(_data);
             }
             DataChanged?.Invoke();
@@ -1235,164 +1406,27 @@ namespace TarazInvoice.Services
 
         private DatabaseModel CreateSeedData()
         {
-            var seed = new DatabaseModel();
-
-            var c1 = new Company
+            var seed = new DatabaseModel
             {
-                Name = "شرکت پتروشیمی زاگرس",
-                EconomicCode = "411122334455",
-                NationalCode = "10102030405",
-                RegistrationNo = "12456",
-                Phone = "021-88776655",
-                Mobile = "09121112233",
-                Address = "تهران، شهرک غرب، خیابان مهستان، پلاک ۱۲",
-                Description = "مشتری صنایع پتروشیمی و پالایشگاهی"
-            };
-
-            var c2 = new Company
-            {
-                Name = "مجتمع صنعتی فولاد البرز",
-                EconomicCode = "411998877665",
-                NationalCode = "10103040506",
-                RegistrationNo = "78910",
-                Phone = "026-34556677",
-                Mobile = "09123334455",
-                Address = "کرج، شهرک صنعتی بهارستان، فاز ۲",
-                Description = "تأمین مقاطع و ورق‌های صنعتی"
-            };
-
-            seed.Companies.Add(c1);
-            seed.Companies.Add(c2);
-
-            var exp1 = new Expert
-            {
-                FullName = "مهندس محمد رضایی",
-                RoleTitle = "مدیر فروش تجهیزات صنعتی",
-                PhoneNumber = "09121234567",
-                Email = "rezaei@taraz.ir",
-                CompanyId = c1.Id,
-                CompanyName = c1.Name,
-                InvoicePrefix = "EXP-REZ-",
-                NextInvoiceNumber = 1002
-            };
-
-            var exp2 = new Expert
-            {
-                FullName = "مهندس سارا محمدی",
-                RoleTitle = "کارشناس بازرگانی داخلی",
-                PhoneNumber = "09129876543",
-                Email = "mohammadi@taraz.ir",
-                CompanyId = c2.Id,
-                CompanyName = c2.Name,
-                InvoicePrefix = "EXP-SM-",
-                NextInvoiceNumber = 2001
-            };
-
-            seed.Experts.Add(exp1);
-            seed.Experts.Add(exp2);
-
-            var inv1 = new ProformaInvoice
-            {
-                InvoiceNumber = "EXP-REZ-1001",
-                IssueDateShamsi = JalaliDateHelper.GetCurrentShamsiDate(),
-                ValidUntilShamsi = JalaliDateHelper.GetShamsiDateAfterDays(7),
-                CompanyId = c1.Id,
-                CompanyName = c1.Name,
-                CompanyPhone = c1.Phone,
-                CompanyAddress = c1.Address,
-                CompanyEconomicCode = c1.EconomicCode,
-                CompanyNationalCode = c1.NationalCode,
-                ExpertId = exp1.Id,
-                ExpertName = exp1.FullName,
-                ExpertPhone = exp1.PhoneNumber,
-                Status = InvoiceStatus.Sent,
-                Items = new List<InvoiceItem>
+                Companies = new List<Company>(),
+                Experts = new List<Expert>(),
+                Invoices = new List<ProformaInvoice>(),
+                StorageItems = new List<StorageItem>(),
+                Settings = new AppSettings
                 {
-                    new InvoiceItem
-                    {
-                        RowNumber = 1,
-                        ItemName = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰",
-                        Quantity = 4,
-                        RawPrice = 18500000,
-                        DiscountPercent = 5,
-                        IsDividedBy1Point1 = true
-                    },
-                    new InvoiceItem
-                    {
-                        RowNumber = 2,
-                        ItemName = "فلنج کربن استیل گلوجوش ۶ اینچ",
-                        Quantity = 12,
-                        RawPrice = 4200000,
-                        DiscountPercent = 10,
-                        IsDividedBy1Point1 = false
-                    }
-                }
+                    InvoicePrefix = "ANA 405-",
+                    NextInvoiceNumber = 1001,
+                    CurrencyUnit = "ریال"
+                },
+                DeletedIds = new List<Guid>()
             };
-
-            foreach (var item in inv1.Items)
-            {
-                item.UpdateFromPercent();
-            }
-
-            seed.Invoices.Add(inv1);
-            PopulateDefaultStorageItems(seed.StorageItems);
 
             return seed;
         }
 
         private static void PopulateDefaultStorageItems(List<StorageItem> items)
         {
-            if (items == null) return;
-            items.Add(new StorageItem
-            {
-                Code = "PRD-101",
-                Name = "کلمپ فلکسیبل جریان و هارمونیک مدل AFLEX 3003 برند PROVA",
-                Unit = "عدد",
-                DefaultPrice = 1037760000,
-                StockQuantity = 15,
-                Category = "ابزار دقیق و اندازه‌گیری",
-                Description = "کلمپ فلکسیبل جریان و هارمونیک ساخت برند PROVA با دقت بالا"
-            });
-            items.Add(new StorageItem
-            {
-                Code = "PRD-102",
-                Name = "هیتر هویه دیجیتالی دو کاره گرداک مدل GORDAK 952 با یکسال گارانتی",
-                Unit = "عدد",
-                DefaultPrice = 298350000,
-                StockQuantity = 22,
-                Category = "تجهیزات لحیم‌کاری و تعمیرات",
-                Description = "هیتر هویه دو کاره گرداک دیجیتال با یکسال گارانتی رسمی"
-            });
-            items.Add(new StorageItem
-            {
-                Code = "PRD-103",
-                Name = "شیر پروانه‌ای استیل ۱۰ اینچ کلاس ۱۵۰",
-                Unit = "عدد",
-                DefaultPrice = 18500000,
-                StockQuantity = 8,
-                Category = "شیرآلات صنعتی",
-                Description = "شیر پروانه‌ای استنلس استیل ۳۱۶ با لاینر EPDM"
-            });
-            items.Add(new StorageItem
-            {
-                Code = "PRD-104",
-                Name = "فلنج کربن استیل گلوجوش ۶ اینچ",
-                Unit = "عدد",
-                DefaultPrice = 4200000,
-                StockQuantity = 35,
-                Category = "اتصالات پایپینگ",
-                Description = "فلنج گلودار کربن استیل کلاس ۱۵۰ استاندارد ASME"
-            });
-            items.Add(new StorageItem
-            {
-                Code = "PRD-105",
-                Name = "مولتی‌متر دیجیتال صنعتی Fluke مدل 87V",
-                Unit = "دستگاه",
-                DefaultPrice = 645000000,
-                StockQuantity = 6,
-                Category = "ابزار دقیق و اندازه‌گیری",
-                Description = "مولتی‌متر صنعتی دقیق Fluke True RMS"
-            });
+            // هیچ کالای پیش‌فرضی اضافه نمی‌شود تا دیتابیس تمیز باشد
         }
     }
 }

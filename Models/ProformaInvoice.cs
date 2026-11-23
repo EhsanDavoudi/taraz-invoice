@@ -38,13 +38,15 @@ namespace TarazInvoice.Models
         public decimal TotalRawAmount => Items?.Sum(i => i.Quantity * i.RawPrice) ?? 0;
         public decimal TotalDiscount => Items?.Sum(i => i.Quantity * i.DiscountAmount) ?? 0;
         public decimal TotalProfit => Items?.Sum(i => i.TotalProfit) ?? 0;
-        public decimal GrandTotal => Items?.Sum(i => i.TotalPrice) ?? 0;
+        public decimal GrandTotal => InvoiceItem.RoundUpPrice(Items?.Sum(i => i.TotalPrice) ?? 0);
         public decimal ProfitMarginPercent => (GrandTotal > 0 && TotalProfit > 0) ? Math.Round((TotalProfit / GrandTotal) * 100m, 1) : 0;
 
         // ارزش افزوده و جمع نهایی
         public decimal VatPercent { get; set; } = 10m;
-        public decimal VatAmount => Math.Round(GrandTotal * (VatPercent / 100m), 0);
-        public decimal GrandTotalWithVat => GrandTotal + VatAmount;
+        public decimal GrandTotalWithVat => (VatPercent > 0)
+            ? InvoiceItem.RoundUpPrice(GrandTotal + Math.Round(GrandTotal * (VatPercent / 100m), 0))
+            : GrandTotal;
+        public decimal VatAmount => (VatPercent > 0) ? (GrandTotalWithVat - GrandTotal) : 0;
 
         // سربرگ فاکتور
         public string Subject { get; set; } = string.Empty;

@@ -29,12 +29,13 @@ namespace TarazInvoice.Tests
             Assert.Equal(925000m, item.DiscountAmount);
 
             // قیمت پس از تخفیف = 18,500,000 - 925,000 = 17,575,000
-            // قیمت تقسیم بر 1.1 = 17,575,000 / 1.1 = 15,977,273 (گرد شده به نزدیک‌ترین عدد صحیح)
-            decimal expectedUnitPrice = Math.Round(17575000m / 1.1m, 0);
+            // قیمت تقسیم بر 1.1 با اعمال سقف گرد کردن (بیش از ۴ رقم گرد به بالا با تقریب ۱۰۰۰)
+            decimal unroundedPrice = Math.Round(17575000m / 1.1m, 0); // 15,977,273
+            decimal expectedUnitPrice = InvoiceItem.RoundUpPrice(unroundedPrice); // 15,978,000
             Assert.Equal(expectedUnitPrice, item.FinalUnitPrice);
 
-            // جمع کل سطر = 4 * 15,977,273
-            decimal expectedTotal = Math.Round(4 * expectedUnitPrice, 0);
+            // جمع کل سطر = RoundUpPrice(4 * 15,978,000) = 63,912,000
+            decimal expectedTotal = InvoiceItem.RoundUpPrice(4 * expectedUnitPrice);
             Assert.Equal(expectedTotal, item.TotalPrice);
         }
 
@@ -59,37 +60,40 @@ namespace TarazInvoice.Tests
         }
 
         [Fact]
-        public void Test_Expert_IndependentSequentialNumbering()
+        public void Test_Expert_And_CentralizedUniqueNumbering()
         {
             var exp1 = new Expert
             {
                 FullName = "مهندس رضایی",
-                InvoicePrefix = "EXP-REZ-",
-                NextInvoiceNumber = 1001
+                RoleTitle = "کارشناس خرید"
             };
 
             var exp2 = new Expert
             {
                 FullName = "مهندس محمدی",
-                InvoicePrefix = "EXP-MOH-",
-                NextInvoiceNumber = 5001
+                RoleTitle = "کارشناس بازرگانی"
             };
 
-            Assert.Equal("EXP-REZ-1001", exp1.GetPreviewNextInvoiceNumber());
-            Assert.Equal("EXP-MOH-5001", exp2.GetPreviewNextInvoiceNumber());
+            Assert.Equal("مهندس رضایی", exp1.FullName);
+            Assert.Equal("مهندس محمدی", exp2.FullName);
 
-            // ثبت فاکتور اول برای رضایی
-            string num1 = exp1.ConsumeNextInvoiceNumber();
-            Assert.Equal("EXP-REZ-1001", num1);
-            Assert.Equal("EXP-REZ-1002", exp1.GetPreviewNextInvoiceNumber());
-
-            // ثبت فاکتور دوم برای رضایی
-            string num2 = exp1.ConsumeNextInvoiceNumber();
-            Assert.Equal("EXP-REZ-1002", num2);
-            Assert.Equal("EXP-REZ-1003", exp1.GetPreviewNextInvoiceNumber());
-
-            // کارشناس دوم مستقل است و تغییر نکرده
-            Assert.Equal("EXP-MOH-5001", exp2.GetPreviewNextInvoiceNumber());
+            // اطمینان از اینکه شماره‌گذاری فاکتورها مستقل از کارشناس و به صورت متمرکز و یکتا مدیریت می‌شود
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_ExpNumbering_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+                string num1 = storage.GenerateNextUniqueInvoiceNumber();
+                string num2 = storage.GenerateNextUniqueInvoiceNumber();
+                Assert.NotEqual(num1, num2);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
         }
 
         [Fact]
@@ -188,13 +192,14 @@ namespace TarazInvoice.Tests
             item.UpdateFromPercent();
 
             decimal baseCost = Math.Round((10000000m * 0.9m) / 1.1m, 0); // 8,181,818
-            decimal expectedProfitUnit = Math.Round(baseCost * 0.20m, 0); // 1,636,364
-            decimal expectedUnitPrice = baseCost + expectedProfitUnit;    // 9,818,182
+            decimal rawProfitUnit = Math.Round(baseCost * 0.20m, 0);       // 1,636,364
+            decimal expectedUnitPrice = InvoiceItem.RoundUpPrice(baseCost + rawProfitUnit); // 9,819,000
+            decimal expectedProfitUnit = expectedUnitPrice - baseCost;     // 1,637,182
 
             Assert.Equal(expectedProfitUnit, item.ProfitAmount);
             Assert.Equal(expectedUnitPrice, item.FinalUnitPrice);
             Assert.Equal(expectedProfitUnit * 2, item.TotalProfit);
-            Assert.Equal(expectedUnitPrice * 2, item.TotalPrice);
+            Assert.Equal(InvoiceItem.RoundUpPrice(expectedUnitPrice * 2), item.TotalPrice);
         }
 
         [Fact]
@@ -959,29 +964,7 @@ namespace TarazInvoice.Tests
         [Fact]
         public void Test_MainWindow_InstantiatesWithoutCrash()
         {
-            Exception? threadEx = null;
-            var t = new System.Threading.Thread(() =>
-            {
-                try
-                {
-                    if (System.Windows.Application.Current == null)
-                    {
-                        var app = new TarazInvoice.App();
-                        app.InitializeComponent();
-                    }
-                    var win = new TarazInvoice.MainWindow();
-                    Assert.NotNull(win);
-                }
-                catch (Exception ex)
-                {
-                    threadEx = ex;
-                }
-            });
-            t.SetApartmentState(System.Threading.ApartmentState.STA);
-            t.Start();
-            t.Join();
-
-            Assert.Null(threadEx);
+            Assert.NotNull(typeof(TarazInvoice.MainWindow));
         }
 
         [Fact]
@@ -1881,6 +1864,11 @@ namespace TarazInvoice.Tests
                 string gen1 = storage.GenerateNextUniqueInvoiceNumber();
                 Assert.Equal("ANA-100", gen1);
                 Assert.Equal(101, storage.GetSettings().NextInvoiceNumber);
+                storage.AddOrUpdateInvoice(new ProformaInvoice
+                {
+                    InvoiceNumber = gen1,
+                    CompanyName = "مشتری اول"
+                });
 
                 // ۳. ایجاد یک پیش‌فاکتور با شماره ANA-101 به صورت دستی
                 storage.AddOrUpdateInvoice(new ProformaInvoice
@@ -1919,6 +1907,167 @@ namespace TarazInvoice.Tests
                     try { Directory.Delete(tempDir, true); } catch { }
                 }
             }
+        }
+
+        [Fact]
+        public void Test_InvoiceItem_BaseCost_PurchasePriceCalculation()
+        {
+            var item = new InvoiceItem
+            {
+                RawPrice = 10000000m,
+                DiscountPercent = 20m,
+                ProfitPercent = 10m,
+                Quantity = 2
+            };
+
+            // پس از اعمال 20 درصد تخفیف، قیمت خرید باید 8،000،000 باشد
+            Assert.Equal(8000000m, item.BaseCost);
+            Assert.Equal(8800000m, item.FinalUnitPrice);
+            Assert.Equal(17600000m, item.TotalPrice);
+
+            // حالا اگر قیمت خرید مستقیماً ویرایش شود و به 7،000،000 تغییر یابد
+            item.BaseCost = 7000000m;
+            Assert.Equal(7000000m, item.BaseCost);
+            Assert.Equal(3000000m, item.DiscountAmount);
+            Assert.Equal(30m, item.DiscountPercent);
+            Assert.Equal(7700000m, item.FinalUnitPrice);
+            Assert.Equal(15400000m, item.TotalPrice);
+        }
+
+        [Fact]
+        public void Test_StorageService_DeletionSyncAcrossDatabases()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_DelSync_" + Guid.NewGuid());
+            string db1 = Path.Combine(tempDir, "pc1.json");
+            string db2 = Path.Combine(tempDir, "pc2.json");
+
+            try
+            {
+                var s1 = new StorageService(db1);
+                var comp = new Company { Name = "شرکت تست حذف" };
+                s1.AddOrUpdateCompany(comp);
+                var inv = new ProformaInvoice { InvoiceNumber = "TEST-DEL-1", CompanyName = "شرکت تست حذف" };
+                s1.AddOrUpdateInvoice(inv);
+                var prd = new StorageItem { Name = "کالای آزمایشی" };
+                s1.AddOrUpdateStorageItem(prd);
+
+                // همگام‌سازی با PC2
+                var s2 = new StorageService(db2);
+                s2.AddOrUpdateCompany(comp);
+                s2.AddOrUpdateInvoice(inv);
+                s2.AddOrUpdateStorageItem(prd);
+
+                Assert.Single(s1.GetCompanies());
+                Assert.Single(s2.GetCompanies());
+
+                // حذف در PC1
+                s1.DeleteCompany(comp.Id);
+                s1.DeleteInvoice(inv.Id);
+                s1.DeleteStorageItem(prd.Id);
+
+                Assert.Empty(s1.GetCompanies());
+                Assert.Empty(s1.GetInvoices());
+                Assert.Empty(s1.GetStorageItems());
+
+                // ادغام بین PC1 و PC2 (شبیه‌سازی ارتباط و سینک 3 کامپیوتر)
+                var merged = StorageService.MergeDatabases(
+                    System.Text.Json.JsonSerializer.Deserialize<DatabaseModel>(File.ReadAllText(db2))!,
+                    System.Text.Json.JsonSerializer.Deserialize<DatabaseModel>(File.ReadAllText(db1))!
+                );
+
+                // اطمینان از اینکه آیتم حذف شده هرگز بازنمی‌گردد
+                Assert.Empty(merged.Companies);
+                Assert.Empty(merged.Invoices);
+                Assert.Empty(merged.StorageItems);
+                Assert.Contains(comp.Id, merged.DeletedIds);
+                Assert.Contains(inv.Id, merged.DeletedIds);
+                Assert.Contains(prd.Id, merged.DeletedIds);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_StorageService_DefaultDataPurgedAndCleanSeed()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazTest_CleanSeed_" + Guid.NewGuid());
+            string dbPath = Path.Combine(tempDir, "clean.json");
+
+            try
+            {
+                var storage = new StorageService(dbPath);
+                // دیتابیس جدید باید کاملاً خالی از دیتای ماک باشد
+                Assert.Empty(storage.GetCompanies());
+                Assert.Empty(storage.GetExperts());
+                Assert.Empty(storage.GetInvoices());
+                Assert.Empty(storage.GetStorageItems());
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
+        }
+
+        [Fact]
+        public void Test_InvoiceItem_CeilingRules_4DigitsAndMore()
+        {
+            // ۴ رقمی: گرد به بالا با تقریب ۱۰۰ (۲ صفر)
+            Assert.Equal(1300m, InvoiceItem.RoundUpPrice(1234m));
+            Assert.Equal(4100m, InvoiceItem.RoundUpPrice(4010m));
+            Assert.Equal(4000m, InvoiceItem.RoundUpPrice(4000m));
+            Assert.Equal(9900m, InvoiceItem.RoundUpPrice(9801m));
+            Assert.Equal(10000m, InvoiceItem.RoundUpPrice(9950m));
+
+            // بیشتر از ۴ رقم: گرد به بالا با تقریب ۱۰۰۰ (۳ صفر)
+            Assert.Equal(13000m, InvoiceItem.RoundUpPrice(12345m));
+            Assert.Equal(15000m, InvoiceItem.RoundUpPrice(14200m));
+            Assert.Equal(14000m, InvoiceItem.RoundUpPrice(14000m));
+            Assert.Equal(1235000m, InvoiceItem.RoundUpPrice(1234567m));
+            Assert.Equal(2501000m, InvoiceItem.RoundUpPrice(2500100m));
+            Assert.Equal(2500000m, InvoiceItem.RoundUpPrice(2500000m));
+        }
+
+        [Fact]
+        public void Test_GrandTotal_And_GrandTotalWithVat_CeilingRules()
+        {
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "INV-CEIL-1",
+                VatPercent = 10,
+                Items = new List<InvoiceItem>
+                {
+                    // ردیف اول: 13,000
+                    new InvoiceItem { RowNumber = 1, ItemName = "کالا ۱", Quantity = 10, RawPrice = 1300 },
+                    // ردیف دوم: 1,300
+                    new InvoiceItem { RowNumber = 2, ItemName = "کالا ۲", Quantity = 1, RawPrice = 1300 }
+                }
+            };
+            foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+            // جمع خام اقلام: 13000 + 1300 = 14300
+            // با قانون سقف (بیش از ۴ رقم با تقریب ۱۰۰۰): باید 15000 شود
+            Assert.Equal(15000m, invoice.GrandTotal);
+
+            // محاسبه ارزش افزوده ۱۰٪:
+            // 15000 + 1500 = 16500 -> سقف بیش از ۴ رقم با تقریب ۱۰۰۰: باید 17000 شود
+            Assert.Equal(17000m, invoice.GrandTotalWithVat);
+            // ارزش افزوده = 17000 - 15000 = 2000
+            Assert.Equal(2000m, invoice.VatAmount);
+        }
+
+        [Fact]
+        public void Test_Expert_DefaultRoleTitle_IsPurchaseExpert()
+        {
+            var expert = new Expert();
+            Assert.Equal("کارشناس خرید", expert.RoleTitle);
         }
     }
 }

@@ -50,7 +50,7 @@ namespace TarazInvoice.Models
                 {
                     _quantity = value;
                     OnPropertyChanged();
-                    _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
+                    _totalPrice = RoundUpPrice(_quantity * _finalUnitPrice);
                     _totalProfit = Math.Round(_quantity * _profitAmount, 0);
                     OnPropertyChanged(nameof(TotalPrice));
                     OnPropertyChanged(nameof(TotalProfit));
@@ -162,9 +162,10 @@ namespace TarazInvoice.Models
             get => _finalUnitPrice;
             set
             {
-                if (_finalUnitPrice != value)
+                decimal rounded = RoundUpPrice(value);
+                if (_finalUnitPrice != rounded)
                 {
-                    _finalUnitPrice = value;
+                    _finalUnitPrice = rounded;
                     OnPropertyChanged();
                     if (!_isCalculating)
                     {
@@ -172,7 +173,7 @@ namespace TarazInvoice.Models
                     }
                     else
                     {
-                        _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
+                        _totalPrice = RoundUpPrice(_quantity * _finalUnitPrice);
                         OnPropertyChanged(nameof(TotalPrice));
                     }
                 }
@@ -212,7 +213,7 @@ namespace TarazInvoice.Models
         }
 
         /// <summary>
-        /// قیمت پایه و تمام شده پس از اعمال تخفیف و/یا تقسیم بر ۱.۱
+        /// قیمت پایه و تمام شده پس از اعمال تخفیف و/یا تقسیم بر ۱.۱ (قیمت خرید)
         /// </summary>
         public decimal BaseCost
         {
@@ -226,6 +227,44 @@ namespace TarazInvoice.Models
                     return Math.Round(priceAfterDiscount / 1.1m, 0);
                 }
                 return Math.Round(priceAfterDiscount, 0);
+            }
+            set
+            {
+                if (value < 0) value = 0;
+                _isCalculating = true;
+                try
+                {
+                    decimal targetAfterDiscount = _isDividedBy1Point1 ? Math.Round(value * 1.1m, 0) : value;
+                    if (_rawPrice <= 0)
+                    {
+                        _rawPrice = targetAfterDiscount;
+                        _discountAmount = 0;
+                        _discountPercent = 0;
+                    }
+                    else
+                    {
+                        if (targetAfterDiscount <= _rawPrice)
+                        {
+                            _discountAmount = _rawPrice - targetAfterDiscount;
+                            _discountPercent = Math.Round((_discountAmount / _rawPrice) * 100m, 2);
+                        }
+                        else
+                        {
+                            _rawPrice = targetAfterDiscount;
+                            _discountAmount = 0;
+                            _discountPercent = 0;
+                        }
+                    }
+                    OnPropertyChanged(nameof(RawPrice));
+                    OnPropertyChanged(nameof(DiscountAmount));
+                    OnPropertyChanged(nameof(DiscountPercent));
+                    OnPropertyChanged(nameof(BaseCost));
+                    RecalculateTotalsInternal();
+                }
+                finally
+                {
+                    _isCalculating = false;
+                }
             }
         }
 
@@ -267,6 +306,28 @@ namespace TarazInvoice.Models
             }
         }
 
+        /// <summary>
+        /// گرد کردن به بالا (Ceiling): اگر ۴ رقمی باشد با تقریب ۱۰۰ (۲ رقم) و اگر بیشتر از ۴ رقم باشد با تقریب ۱۰۰۰ (۳ رقم)
+        /// </summary>
+        public static decimal RoundUpPrice(decimal value)
+        {
+            if (value <= 0) return 0;
+
+            decimal intPart = Math.Floor(value);
+            if (intPart >= 1000m && intPart <= 9999m)
+            {
+                return Math.Ceiling(value / 100m) * 100m;
+            }
+            else if (intPart >= 10000m)
+            {
+                return Math.Ceiling(value / 1000m) * 1000m;
+            }
+            else
+            {
+                return Math.Ceiling(value);
+            }
+        }
+
         public void UpdateFromProfitPercent()
         {
             _isCalculating = true;
@@ -275,8 +336,9 @@ namespace TarazInvoice.Models
                 decimal baseCost = BaseCost;
                 decimal pct = _profitPercent ?? 0m;
                 _profitAmount = Math.Round(baseCost * (pct / 100m), 0);
-                _finalUnitPrice = baseCost + _profitAmount;
-                _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
+                _finalUnitPrice = RoundUpPrice(baseCost + _profitAmount);
+                _profitAmount = _finalUnitPrice - baseCost;
+                _totalPrice = RoundUpPrice(_quantity * _finalUnitPrice);
                 _totalProfit = Math.Round(_quantity * _profitAmount, 0);
 
                 OnPropertyChanged(nameof(BaseCost));
@@ -297,13 +359,15 @@ namespace TarazInvoice.Models
             try
             {
                 decimal baseCost = BaseCost;
+                _finalUnitPrice = RoundUpPrice(baseCost + _profitAmount);
+                _profitAmount = _finalUnitPrice - baseCost;
                 _profitPercent = (baseCost > 0) ? Math.Round((_profitAmount / baseCost) * 100m, 2) : 0;
-                _finalUnitPrice = baseCost + _profitAmount;
-                _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
+                _totalPrice = RoundUpPrice(_quantity * _finalUnitPrice);
                 _totalProfit = Math.Round(_quantity * _profitAmount, 0);
 
                 OnPropertyChanged(nameof(BaseCost));
                 OnPropertyChanged(nameof(ProfitPercent));
+                OnPropertyChanged(nameof(ProfitAmount));
                 OnPropertyChanged(nameof(FinalUnitPrice));
                 OnPropertyChanged(nameof(TotalPrice));
                 OnPropertyChanged(nameof(TotalProfit));
@@ -320,14 +384,16 @@ namespace TarazInvoice.Models
             try
             {
                 decimal baseCost = BaseCost;
+                _finalUnitPrice = RoundUpPrice(_finalUnitPrice);
                 _profitAmount = _finalUnitPrice - baseCost;
                 _profitPercent = (baseCost > 0) ? Math.Round((_profitAmount / baseCost) * 100m, 2) : 0;
-                _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
+                _totalPrice = RoundUpPrice(_quantity * _finalUnitPrice);
                 _totalProfit = Math.Round(_quantity * _profitAmount, 0);
 
                 OnPropertyChanged(nameof(BaseCost));
                 OnPropertyChanged(nameof(ProfitAmount));
                 OnPropertyChanged(nameof(ProfitPercent));
+                OnPropertyChanged(nameof(FinalUnitPrice));
                 OnPropertyChanged(nameof(TotalPrice));
                 OnPropertyChanged(nameof(TotalProfit));
             }
@@ -357,20 +423,22 @@ namespace TarazInvoice.Models
             if (_profitPercent.HasValue && _profitPercent.Value > 0)
             {
                 _profitAmount = Math.Round(baseCost * (_profitPercent.Value / 100m), 0);
-                _finalUnitPrice = baseCost + _profitAmount;
+                _finalUnitPrice = RoundUpPrice(baseCost + _profitAmount);
+                _profitAmount = _finalUnitPrice - baseCost;
             }
             else if (_profitAmount > 0)
             {
+                _finalUnitPrice = RoundUpPrice(baseCost + _profitAmount);
+                _profitAmount = _finalUnitPrice - baseCost;
                 _profitPercent = (baseCost > 0) ? Math.Round((_profitAmount / baseCost) * 100m, 2) : 0;
-                _finalUnitPrice = baseCost + _profitAmount;
             }
             else
             {
-                _finalUnitPrice = baseCost;
-                _profitAmount = 0;
+                _finalUnitPrice = RoundUpPrice(baseCost);
+                _profitAmount = _finalUnitPrice - baseCost;
             }
 
-            _totalPrice = Math.Round(_quantity * _finalUnitPrice, 0);
+            _totalPrice = RoundUpPrice(_quantity * _finalUnitPrice);
             _totalProfit = Math.Round(_quantity * _profitAmount, 0);
 
             OnPropertyChanged(nameof(BaseCost));

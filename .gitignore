@@ -30,6 +30,8 @@ Data/*.json
 
 ## Published Output and Installers
 publish/
+*.rar
+*.zip
 
 ## Local Tooling & Temporary Files
 .github/hooks/

@@ -17,13 +17,16 @@ namespace TarazInvoice.Models
         public List<string> AssignedCompanyNames { get; set; } = new List<string>();
 
         public string FullName { get; set; } = string.Empty;
-        public string RoleTitle { get; set; } = "کارشناس فروش";
+        public string RoleTitle { get; set; } = "کارشناس خرید";
         public string PhoneNumber { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        
-        // شماره‌گذاری اختصاصی پیش‌فاکتور برای هر کارشناس
-        public string InvoicePrefix { get; set; } = "EXP-";
-        public int NextInvoiceNumber { get; set; } = 1001;
+
+        // فیلدهای قدیمی شماره‌گذاری کارشناس جهت حفظ سازگاری با فایل‌های قبلی (غیرفعال شده و در رابط کاربری نمایش داده نمی‌شود)
+        [Obsolete("Expert-level invoice prefix and numbering is removed. Use centralized invoice numbering.")]
+        public string InvoicePrefix { get; set; } = string.Empty;
+
+        [Obsolete("Expert-level invoice prefix and numbering is removed. Use centralized invoice numbering.")]
+        public int NextInvoiceNumber { get; set; } = 0;
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
@@ -58,18 +61,6 @@ namespace TarazInvoice.Models
             }
 
             return AssignedCompanyIds.Contains(companyId) || (CompanyId.HasValue && CompanyId.Value == companyId);
-        }
-
-        public string GetPreviewNextInvoiceNumber()
-        {
-            return $"{InvoicePrefix}{NextInvoiceNumber}";
-        }
-
-        public string ConsumeNextInvoiceNumber()
-        {
-            string number = $"{InvoicePrefix}{NextInvoiceNumber}";
-            NextInvoiceNumber++;
-            return number;
         }
 
         public override string ToString() => FullName;

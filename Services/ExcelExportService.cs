@@ -580,7 +580,7 @@ namespace TarazInvoice.Services
             ws.Cell("D3").Value = "تاریخ: {{DATE}}";
             ws.Cell("A4").Value = "خریدار: {{CUSTOMER_NAME}}";
             ws.Cell("D4").Value = "مهلت اعتبار: {{VALID_UNTIL}}";
-            ws.Cell("A5").Value = "کارشناس فروش: {{EXPERT_NAME}}";
+            ws.Cell("A5").Value = "کارشناس خرید: {{EXPERT_NAME}}";
             ws.Cell("D5").Value = "تلفن کارشناس: {{EXPERT_PHONE}}";
 
             ws.Range("A3:E5").Style.Font.Bold = true;

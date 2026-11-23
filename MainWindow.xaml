@@ -6,7 +6,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:TarazInvoice"
         mc:Ignorable="d"
-        Title="تـراز (v0.2.0-beta) - سامانه جامع صدور و مدیریت پیش‌فاکتور"
+        Title="تـراز (v1.0.1) - سامانه جامع صدور و مدیریت پیش‌فاکتور"
         Height="880" Width="1400"
         MinHeight="740" MinWidth="1150"
         WindowStartupLocation="CenterScreen"
@@ -26,7 +26,7 @@
         </Grid.RowDefinitions>
 
         <!-- نوار عنوان فلوئنت ویندوز ۱۱ -->
-        <ui:TitleBar Grid.Row="0" Title="تـراز | سامانه جامع صدور و مدیریت پیش‌فاکتور (v0.2.0-beta)" />
+        <ui:TitleBar Grid.Row="0" Title="تـراز | سامانه جامع صدور و مدیریت پیش‌فاکتور (v1.0.1)" />
 
         <!-- ساختار اصلی برنامه با جهت کاملاً بومی راست‌چین فارسی -->
         <Grid Grid.Row="1" FlowDirection="RightToLeft">
@@ -183,7 +183,7 @@
                                 </Button.Template>
                                 <StackPanel Orientation="Horizontal">
                                     <ui:SymbolIcon x:Name="NavIconExperts" Symbol="People24" Margin="0,0,12,0" FontSize="18" Foreground="{StaticResource TextMutedBrush}"/>
-                                    <TextBlock x:Name="NavTextExperts" Text="کارشناسان و شماره‌انداز" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="NavTextExperts" Text="کارشناسان خرید" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </Border>
@@ -734,7 +734,62 @@
 
                     <!-- ۲. صفحه فرم صدور / ویرایش پیش‌فاکتور -->
                     <Grid x:Name="ViewInvoiceEditor" Margin="24" Visibility="Collapsed">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- نوار ابزار و ذخیره بالای پیش‌فاکتور (ثابت در بالای صفحه بدون نیاز به اسکرول) -->
+                        <Border Grid.Row="0" Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- دکمه‌های اصلی عملیات فاکتور -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- دکمه ذخیره پیش‌فاکتور -->
+                                    <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" 
+                                               Content="ذخیره پیش‌فاکتور" Padding="18,8" FontSize="13" FontWeight="Bold" Margin="0,0,8,0" Click="BtnSaveInvoice_Click"/>
+
+                                    <!-- دکمه تأیید پیش‌فاکتور و چاپ مستقیم -->
+                                    <ui:Button Appearance="Success" Padding="14,8" FontSize="12" FontWeight="Bold" Margin="0,0,8,0" Click="BtnApproveAndPrint_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="White" Margin="0,0,6,0"/>
+                                            <TextBlock Text="تأیید و چاپ مستقیم" Foreground="White" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </ui:Button>
+
+                                    <!-- خروجی اکسل -->
+                                    <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=DocumentTable24}" Content="خروجی اکسل" 
+                                               Padding="12,8" FontSize="12" Margin="0,0,8,0" Click="BtnSaveAndExportExcel_Click"/>
+
+                                    <!-- دکمه ذخیره PDF مستقیم -->
+                                    <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=DocumentPdf24}" Content="ذخیره PDF" 
+                                               Padding="12,8" FontSize="12" Margin="0,0,8,0" Click="BtnSaveAndExportPdf_Click"/>
+
+                                    <!-- پیش‌نمایش چاپ / PDF -->
+                                    <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon Symbol=Print24}" Content="چاپ / PDF" 
+                                               Padding="12,8" FontSize="12" Margin="0,0,8,0" Click="BtnSaveAndPrintPdf_Click"/>
+
+                                    <!-- انصراف و بازگشت -->
+                                    <ui:Button Appearance="Secondary" Content="انصراف و بازگشت" 
+                                               Padding="12,8" FontSize="12" Click="BtnCancelEditor_Click"/>
+                                </StackPanel>
+
+                                <!-- وضعیت ذخیره خودکار -->
+                                <Border Grid.Column="2" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="CloudCheckmark24" Foreground="{StaticResource SuccessBrush}" FontSize="16" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="TxtTopAutoSaveStatus" Text="ذخیره خودکار: فعال" Foreground="{StaticResource SuccessBrush}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel>
                                 <!-- کارت‌های اطلاعات طرفین -->
                                 <Grid Margin="0,0,0,16">
@@ -804,10 +859,7 @@
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                        <TextBlock Text="کارشناس صادرکننده:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
-                                                        <TextBlock x:Name="TxtExpertCounterHint" Text="" Foreground="{StaticResource PrimaryBrush}" FontSize="10" FontWeight="Bold" Margin="4,0,0,0"/>
-                                                    </StackPanel>
+                                                    <TextBlock Text="کارشناس صادرکننده:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
                                                     <ComboBox x:Name="CmbEditorExpert" DisplayMemberPath="FullName" Height="36" HorizontalAlignment="Stretch" SelectionChanged="CmbEditorExpert_SelectionChanged"/>
                                                 </StackPanel>
 
@@ -1208,6 +1260,22 @@
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
 
+                                                <!-- قیمت خرید پس از کسر تخفیف و/یا تقسیم بر ۱.۱ -->
+                                                <DataGridTemplateColumn x:Name="ColBaseCost" Header="قیمت خرید (ریال)" Width="1.15*" MinWidth="95">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="6,4" Margin="2" Cursor="IBeam">
+                                                                <TextBlock Text="{Binding BaseCost, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"/>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                                        <DataTemplate>
+                                                            <ui:TextBox Text="{Binding BaseCost, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource DecimalNumberConverter}}" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center"/>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                                </DataGridTemplateColumn>
+
                                                 <!-- تیک ویژه محاسبه تقسیم بر ۱.۱ با تک‌کلیک سریع -->
                                                 <DataGridTemplateColumn x:Name="Col1Point1" Header="تقسیم بر ۱.۱" Width="0.9*" MinWidth="80">
                                                     <DataGridTemplateColumn.CellTemplate>
@@ -1547,51 +1615,6 @@
                                                 </StackPanel>
                                             </ui:Button>
                                         </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- دکمه‌های اقدام -->
-                                <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,24">
-                                    <StackPanel>
-
-                                        <StackPanel Orientation="Horizontal">
-                                            <!-- دکمه ذخیره پیش‌فاکتور -->
-                                            <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" 
-                                                       Content="ذخیره پیش‌فاکتور" Padding="20,10" FontSize="13" FontWeight="Bold" Margin="0,0,8,0" Click="BtnSaveInvoice_Click"/>
-
-                                            <!-- دکمه تأیید پیش‌فاکتور و چاپ مستقیم -->
-                                            <ui:Button Appearance="Success" Padding="16,10" FontSize="12.5" FontWeight="Bold" Margin="0,0,8,0" Click="BtnApproveAndPrint_Click">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="White" Margin="0,0,6,0"/>
-                                                    <TextBlock Text="تأیید و چاپ مستقیم" Foreground="White" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ui:Button>
-
-                                            <!-- اقدامات ثانویه با آیکون‌های تمیز و بدون اغتشاش رنگی -->
-                                            <ui:Button Appearance="Secondary" Padding="14,10" FontSize="12.5" Margin="0,0,8,0" Click="BtnSaveAndExportExcel_Click">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <ui:SymbolIcon Symbol="DocumentTable24" Foreground="{StaticResource SuccessBrush}" Margin="0,0,6,0"/>
-                                                    <TextBlock Text="ذخیره و صدور اکسل" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ui:Button>
-
-                                            <!-- دکمه ذخیره PDF مستقیم -->
-                                            <ui:Button Appearance="Secondary" Padding="14,10" FontSize="12.5" Margin="0,0,8,0" Click="BtnSaveAndExportPdf_Click">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <ui:SymbolIcon Symbol="DocumentPdf24" Foreground="{StaticResource DangerBrush}" Margin="0,0,6,0"/>
-                                                    <TextBlock Text="ذخیره PDF" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ui:Button>
-
-                                            <ui:Button Appearance="Secondary" Padding="14,10" FontSize="12.5" Margin="0,0,8,0" Click="BtnSaveAndPrintPdf_Click">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <ui:SymbolIcon Symbol="Print24" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,6,0"/>
-                                                    <TextBlock Text="ذخیره و چاپ" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ui:Button>
-
-                                            <ui:Button Appearance="Secondary" Content="انصراف و بازگشت" Padding="14,10" FontSize="12.5" Click="BtnCancelEditor_Click"/>
-                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -2024,7 +2047,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="فهرست کارشناسان فروش با شماره‌انداز مستقل" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="فهرست کارشناسان خرید" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                                     <ui:Button Grid.Column="1" Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Add24}" Content="کارشناس جدید" Click="BtnNewExpert_Click"/>
                                 </Grid>
 
@@ -2035,8 +2058,6 @@
                                         <DataGridTextColumn Header="نام کارشناس" Binding="{Binding FullName}" Width="1.5*" MinWidth="110" FontWeight="Bold"/>
                                         <DataGridTextColumn Header="سمت" Binding="{Binding RoleTitle}" Width="1.1*" MinWidth="90"/>
                                         <DataGridTextColumn Header="شرکت‌های مجاز" Binding="{Binding AssignedCompaniesDisplay}" Width="1.6*" MinWidth="120"/>
-                                        <DataGridTextColumn Header="پیشوند فاکتور" Binding="{Binding InvoicePrefix}" Width="1.0*" MinWidth="85"/>
-                                        <DataGridTextColumn Header="شماره بعدی" Binding="{Binding NextInvoiceNumber}" Width="1.0*" MinWidth="85" FontWeight="Bold"/>
                                         <DataGridTextColumn Header="تلفن" Binding="{Binding PhoneNumber}" Width="1.1*" MinWidth="95"/>
 
                                         <DataGridTemplateColumn Header="عملیات" Width="1.2*" MinWidth="95">
@@ -2067,7 +2088,7 @@
                                 <ui:TextBox x:Name="TxtExpertFullName" Margin="0,0,0,10"/>
 
                                 <TextBlock Text="سمت / عنوان شغلی:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
-                                <ui:TextBox x:Name="TxtExpertRole" Text="کارشناس فروش" Margin="0,0,0,10"/>
+                                <ui:TextBox x:Name="TxtExpertRole" Text="کارشناس خرید" Margin="0,0,0,10"/>
 
                                 <!-- انتساب کارشناس به شرکت‌ها -->
                                 <Border Background="{StaticResource SurfaceSubtleBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
@@ -2078,31 +2099,6 @@
                                         <Border BorderThickness="1" BorderBrush="{StaticResource BorderSubtleBrush}" Background="White" CornerRadius="6">
                                             <ListBox x:Name="LstExpertCompanies" MaxHeight="110" SelectionMode="Multiple" DisplayMemberPath="Name" BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                                         </Border>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- کادر شماره‌گذاری مستقل -->
-                                <Border Background="{StaticResource SurfaceSubtleBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-                                    <StackPanel>
-                                        <TextBlock Text="تنظیمات شماره‌گذاری اختصاصی پیش‌فاکتور:" FontWeight="Bold" FontSize="11.5" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,0,8"/>
-                                        
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                                <TextBlock Text="پیشوند فاکتور:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
-                                                <ui:TextBox x:Name="TxtExpertPrefix" Text="EXP-" TextChanged="TxtExpertNumbering_TextChanged"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                                                <TextBlock Text="شمارنده بعدی:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,2"/>
-                                                <ui:TextBox x:Name="TxtExpertNextNum" Text="1001" TextChanged="TxtExpertNumbering_TextChanged"/>
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <TextBlock x:Name="TxtExpertNumberPreview" Text="پیش‌نمایش: EXP-1001" 
-                                                   FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
                                     </StackPanel>
                                 </Border>
 
