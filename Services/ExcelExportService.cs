@@ -502,8 +502,8 @@ namespace TarazInvoice.Services
             rowIdx += 2;
 
             // ==================== ۶. امضا، مهر و مسئول (مطابق تصویر) ====================
-            // سمت چپ (ستون‌های ۵ و ۶ در راست‌چین): کارشناسی خرید / فروش
-            string expRole = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:");
+            // سمت چپ (ستون‌های ۵ و ۶ در راست‌چین): کارشناس خرید / فروش
+            string expRole = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناس خرید:");
             if (!string.IsNullOrWhiteSpace(invoice.ExpertName) && invoice.ExpertName != "(بدون کارشناس)")
             {
                 ws.Range(rowIdx, 5, rowIdx, 6).Merge();

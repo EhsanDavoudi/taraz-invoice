@@ -18,7 +18,7 @@ namespace TarazInvoice.Models
 
         // مسئول امضا، سربرگ و عبارات استاندارد پیش‌فاکتور
         public string SignatoryName { get; set; } = "محمد احمدی پور هدش";
-        public string ExpertRoleLabel { get; set; } = "کارشناسی خرید:";
+        public string ExpertRoleLabel { get; set; } = "کارشناس خرید:";
         public string DefaultValidityText { get; set; } = "اعتبار این پیش فاکتورتا پایان روز می باشد.";
         public string CustomerLabelPrefix { get; set; } = "نام مشتری شرکت محترم ";
         public string GreetingText { get; set; } = "احتراما\" قیمت پیشنهادی و سایر شرایط فروش به شرح زیر اعلام میگردد:";

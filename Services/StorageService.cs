@@ -534,6 +534,18 @@ namespace TarazInvoice.Services
             {
                 model.Settings.BankAccounts = new List<BankAccountInfo>();
             }
+
+            if (model.Settings.ExpertRoleLabel == "کارشناسی خرید:" || model.Settings.ExpertRoleLabel == "کارشناس فروش:" || model.Settings.ExpertRoleLabel == "کارشناسی فروش:")
+            {
+                model.Settings.ExpertRoleLabel = "کارشناس خرید:";
+            }
+            foreach (var inv in model.Invoices)
+            {
+                if (inv.ExpertRoleLabel == "کارشناسی خرید:" || inv.ExpertRoleLabel == "کارشناس فروش:" || inv.ExpertRoleLabel == "کارشناسی فروش:")
+                {
+                    inv.ExpertRoleLabel = "کارشناس خرید:";
+                }
+            }
         }
 
         private void SaveToFileInternal(string filePath, DatabaseModel model)

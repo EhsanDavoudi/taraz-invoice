@@ -1379,7 +1379,7 @@ namespace TarazInvoice
 
             TxtEditorValidityText.Text = !string.IsNullOrWhiteSpace(invoice.ValidityText) ? invoice.ValidityText : (!string.IsNullOrWhiteSpace(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتورتا پایان روز می باشد.");
             TxtEditorSignatoryName.Text = !string.IsNullOrWhiteSpace(invoice.SignatoryName) ? invoice.SignatoryName : (!string.IsNullOrWhiteSpace(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش");
-            TxtEditorExpertRole.Text = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:");
+            TxtEditorExpertRole.Text = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناس خرید:");
 
             // وضعیت‌های هایلایت
             ChkHighlightValidity.IsChecked = invoice.HighlightValidity;
@@ -1704,7 +1704,7 @@ namespace TarazInvoice
             _currentEditingInvoice.DeliveryDays = TxtEditorDeliveryDays.Text?.Trim() ?? "موجود";
             _currentEditingInvoice.DeliveryLocation = TxtEditorDeliveryLocation.Text?.Trim() ?? "مشهد";
             _currentEditingInvoice.SignatoryName = TxtEditorSignatoryName.Text?.Trim() ?? "محمد احمدی پور هدش";
-            _currentEditingInvoice.ExpertRoleLabel = TxtEditorExpertRole.Text?.Trim() ?? "کارشناسی خرید:";
+            _currentEditingInvoice.ExpertRoleLabel = TxtEditorExpertRole.Text?.Trim() ?? "کارشناس خرید:";
 
             if (TryParsePercent(TxtEditorVatPercent?.Text, out decimal vat))
             {
@@ -3275,7 +3275,7 @@ namespace TarazInvoice
                 if (TxtVatPercent != null) TxtVatPercent.Text = settings.VatPercent.ToString("0");
 
                 if (TxtSignatoryName != null) TxtSignatoryName.Text = !string.IsNullOrEmpty(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش";
-                if (TxtExpertRoleLabel != null) TxtExpertRoleLabel.Text = !string.IsNullOrEmpty(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:";
+                if (TxtExpertRoleLabel != null) TxtExpertRoleLabel.Text = !string.IsNullOrEmpty(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناس خرید:";
                 if (TxtDefaultValidityText != null) TxtDefaultValidityText.Text = !string.IsNullOrEmpty(settings.DefaultValidityText) ? settings.DefaultValidityText : "اعتبار این پیش فاکتور تا پایان روز کاری میباشد.";
                 if (CmbSettingsCurrencyUnit != null) CmbSettingsCurrencyUnit.SelectedIndex = 0;
 
@@ -3767,7 +3767,7 @@ namespace TarazInvoice
             settings.DeliveryLocation = TxtDeliveryLocation.Text?.Trim() ?? "مشهد";
 
             if (TxtSignatoryName != null) settings.SignatoryName = TxtSignatoryName.Text?.Trim() ?? "محمد احمدی پور هدش";
-            if (TxtExpertRoleLabel != null) settings.ExpertRoleLabel = TxtExpertRoleLabel.Text?.Trim() ?? "کارشناسی خرید:";
+            if (TxtExpertRoleLabel != null) settings.ExpertRoleLabel = TxtExpertRoleLabel.Text?.Trim() ?? "کارشناس خرید:";
             if (TxtDefaultValidityText != null) settings.DefaultValidityText = TxtDefaultValidityText.Text?.Trim() ?? "اعتبار این پیش فاکتورتا پایان روز می باشد.";
             settings.CurrencyUnit = "ریال";
 
@@ -3822,7 +3822,7 @@ namespace TarazInvoice
                 DeliveryDays = !string.IsNullOrWhiteSpace(TxtDeliveryDays?.Text) ? TxtDeliveryDays.Text.Trim() : "موجود",
                 DeliveryLocation = !string.IsNullOrWhiteSpace(TxtDeliveryLocation?.Text) ? TxtDeliveryLocation.Text.Trim() : "مشهد",
                 SignatoryName = !string.IsNullOrWhiteSpace(TxtSignatoryName?.Text) ? TxtSignatoryName.Text.Trim() : "محمد احمدی پور هدش",
-                ExpertRoleLabel = !string.IsNullOrWhiteSpace(TxtExpertRoleLabel?.Text) ? TxtExpertRoleLabel.Text.Trim() : "کارشناسی خرید:",
+                ExpertRoleLabel = !string.IsNullOrWhiteSpace(TxtExpertRoleLabel?.Text) ? TxtExpertRoleLabel.Text.Trim() : "کارشناس خرید:",
                 CurrencyUnit = "ریال",
                 BankAccounts = _settingsBankAccounts?.ToList() ?? new List<BankAccountInfo>()
             };

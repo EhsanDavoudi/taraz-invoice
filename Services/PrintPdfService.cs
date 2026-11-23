@@ -91,7 +91,7 @@ namespace TarazInvoice.Services
         {
             if (!string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel)) return invoice.ExpertRoleLabel;
             if (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel)) return settings.ExpertRoleLabel;
-            return "کارشناسی خرید:";
+            return "کارشناس خرید:";
         }
 
         internal static List<(string Text, bool Highlight)> BuildTerms(ProformaInvoice invoice, AppSettings settings)

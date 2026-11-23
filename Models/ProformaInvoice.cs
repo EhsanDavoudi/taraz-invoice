@@ -65,7 +65,7 @@ namespace TarazInvoice.Models
 
         // مسئول امضا و کارشناس
         public string SignatoryName { get; set; } = "محمد احمدی پور هدش";
-        public string ExpertRoleLabel { get; set; } = "کارشناسی خرید:";
+        public string ExpertRoleLabel { get; set; } = "کارشناس خرید:";
 
         // حساب‌های بانکی اختصاصی این پیش‌فاکتور (در صورت عدم تعیین، از تنظیمات سامانه خوانده می‌شود)
         public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>();

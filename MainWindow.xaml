@@ -1529,7 +1529,7 @@
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Margin="6,0,0,0">
                                                 <TextBlock Text="عنوان کارشناس (سمت چپ پایین فاکتور):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                <ui:TextBox x:Name="TxtEditorExpertRole" Text="کارشناسی خرید:"/>
+                                                <ui:TextBox x:Name="TxtEditorExpertRole" Text="کارشناس خرید:"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -2455,7 +2455,7 @@
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="1" Margin="4,0,0,0">
                                                             <TextBlock Text="عنوان کارشناس (پایین فاکتور):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                            <ui:TextBox x:Name="TxtExpertRoleLabel" Text="کارشناسی خرید:"/>
+                                                            <ui:TextBox x:Name="TxtExpertRoleLabel" Text="کارشناس خرید:"/>
                                                         </StackPanel>
                                                     </Grid>
 

@@ -634,7 +634,7 @@ namespace TarazInvoice.Tests
                 DeliveryLocation = "مشهد",
                 HighlightDeliveryLocation = false,
                 SignatoryName = "محمد احمدی پور هدش",
-                ExpertRoleLabel = "کارشناسی خرید:",
+                ExpertRoleLabel = "کارشناس خرید:",
                 ExpertName = "سرکار خانم دهنودی"
             };
 
@@ -648,7 +648,7 @@ namespace TarazInvoice.Tests
             Assert.Equal(inv.ValidityText, cloned.ValidityText);
             Assert.True(cloned.HighlightValidity);
             Assert.Equal("محمد احمدی پور هدش", cloned.SignatoryName);
-            Assert.Equal("کارشناسی خرید:", cloned.ExpertRoleLabel);
+            Assert.Equal("کارشناس خرید:", cloned.ExpertRoleLabel);
             Assert.True(cloned.HighlightNotes);
             Assert.True(cloned.HighlightDeliveryDays);
         }
@@ -665,7 +665,7 @@ namespace TarazInvoice.Tests
                 settings.SellerName = "شرکت آریان نیرو گستر اترک";
                 settings.SellerRegistrationNo = "۸۸۶۵۴";
                 settings.SignatoryName = "محمد احمدی پور هدش";
-                settings.ExpertRoleLabel = "کارشناسی خرید:";
+                settings.ExpertRoleLabel = "کارشناس خرید:";
                 storage.Save();
 
                 var invoice = new ProformaInvoice
@@ -685,7 +685,7 @@ namespace TarazInvoice.Tests
                     HighlightDeliveryDays = true,
                     DeliveryLocation = "مشهد",
                     SignatoryName = "محمد احمدی پور هدش",
-                    ExpertRoleLabel = "کارشناسی خرید:",
+                    ExpertRoleLabel = "کارشناس خرید:",
                     ExpertName = "سرکار خانم دهنودی",
                     Items = new List<InvoiceItem>
                     {
@@ -799,7 +799,7 @@ namespace TarazInvoice.Tests
                     CompanyName = "شرکت پالود پارسیان",
                     ExpertName = "سرکار خانم دهنودی",
                     SignatoryName = "محمد احمدی پور هدش",
-                    ExpertRoleLabel = "کارشناسی خرید:",
+                    ExpertRoleLabel = "کارشناس خرید:",
                     Items = new List<InvoiceItem>
                     {
                         new InvoiceItem
@@ -832,7 +832,7 @@ namespace TarazInvoice.Tests
             settings.SellerName = "شرکت آریان نیرو گستر اترک";
             settings.SellerRegistrationNo = "۸۸۶۵۴";
             settings.SignatoryName = "محمد احمدی پور هدش";
-            settings.ExpertRoleLabel = "کارشناسی خرید:";
+            settings.ExpertRoleLabel = "کارشناس خرید:";
             settings.SellerAddress = "مشهد - خیابان سنایی - بین سنایی ۱۲ و ۱۴ - روبروی سنایی ۱۵ - پلاک ۱۱۵";
             settings.SellerPhone = "۵-۰۵۱۳۷۱۳۲۰۸۴";
             settings.CurrencyUnit = "ریال";
@@ -871,7 +871,7 @@ namespace TarazInvoice.Tests
                 DeliveryLocation = "مشهد",
                 HighlightDeliveryLocation = false,
                 SignatoryName = "محمد احمدی پور هدش",
-                ExpertRoleLabel = "کارشناسی خرید:",
+                ExpertRoleLabel = "کارشناس خرید:",
                 ExpertName = "سرکار خانم دهنودی",
                 Items = new List<InvoiceItem>
                 {
