@@ -1341,6 +1341,7 @@ namespace TarazInvoice
             TxtEditorInvoiceNumber.Text = invoice.InvoiceNumber;
             TxtEditorIssueDate.Text = invoice.IssueDateShamsi;
             CmbEditorStatus.SelectedIndex = (int)invoice.Status;
+            UpdateApproveButtonVisibility();
 
             TxtEditorCompanyPhone.Text = invoice.CompanyPhone;
             TxtEditorCompanyAddress.Text = invoice.CompanyAddress;
@@ -2337,6 +2338,7 @@ namespace TarazInvoice
             {
                 _currentEditingInvoice.Status = InvoiceStatus.Approved;
             }
+            UpdateApproveButtonVisibility();
             if (SaveCurrentInvoiceFromEditor())
             {
                 if (_currentEditingInvoice != null)
@@ -2344,7 +2346,7 @@ namespace TarazInvoice
                     try
                     {
                         _printService.PrintOrExportToPdf(_currentEditingInvoice);
-                        SetStatus($"پیش‌فاکتور {_currentEditingInvoice.InvoiceNumber} تأیید و دستور چاپ ارسال گردید.");
+                        SetStatus($"پیش‌فاکتور {_currentEditingInvoice.InvoiceNumber} تأیید و پیش‌نمایش چاپ ارسال گردید.");
                     }
                     catch (Exception ex)
                     {
@@ -2353,6 +2355,33 @@ namespace TarazInvoice
                 }
                 // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند
             }
+        }
+
+        private void CmbEditorStatus_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateApproveButtonVisibility();
+        }
+
+        private void UpdateApproveButtonVisibility()
+        {
+            if (BtnTopApproveAndPrint == null) return;
+
+            bool isApproved = false;
+            if (CmbEditorStatus != null && CmbEditorStatus.SelectedItem != null)
+            {
+                string? selected = CmbEditorStatus.SelectedItem.ToString();
+                if (selected == InvoiceStatus.Approved.ToPersianString() ||
+                    (CmbEditorStatus.SelectedIndex >= 0 && (InvoiceStatus)CmbEditorStatus.SelectedIndex == InvoiceStatus.Approved))
+                {
+                    isApproved = true;
+                }
+            }
+            else if (_currentEditingInvoice != null && _currentEditingInvoice.Status == InvoiceStatus.Approved)
+            {
+                isApproved = true;
+            }
+
+            BtnTopApproveAndPrint.Visibility = isApproved ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void TxtQuickItemName_TextChanged(object sender, TextChangedEventArgs e)
@@ -3766,13 +3795,8 @@ namespace TarazInvoice
 
             try
             {
-                var doc = _printService.CreateInvoiceFlowDocument(sampleInv, previewSettings);
-                var printDialog = new PrintDialog();
-                if (printDialog.ShowDialog() == true)
-                {
-                    printDialog.PrintDocument(((System.Windows.Documents.IDocumentPaginatorSource)doc).DocumentPaginator, "پیش‌فاکتور نمونه رسمی");
-                    SetStatus("پیش‌نمایش چاپ سند رسمی با تنظیمات جاری با موفقیت ارسال گردید.");
-                }
+                _printService.PrintOrExportToPdf(sampleInv, previewSettings);
+                SetStatus("پیش‌نمایش چاپ سند رسمی با تنظیمات جاری با موفقیت باز گردید.");
             }
             catch (Exception ex)
             {

@@ -2243,5 +2243,19 @@ namespace TarazInvoice.Tests
 
             Assert.Null(threadEx);
         }
+
+        [Fact]
+        public void Test_NotApprovedToVisibilityConverter()
+        {
+            var converter = new NotApprovedToVisibilityConverter();
+
+            var visibleDraft = converter.Convert(InvoiceStatus.Draft, typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture);
+            var visiblePending = converter.Convert(InvoiceStatus.Pending, typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture);
+            var collapsedApproved = converter.Convert(InvoiceStatus.Approved, typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture);
+
+            Assert.Equal(System.Windows.Visibility.Visible, visibleDraft);
+            Assert.Equal(System.Windows.Visibility.Visible, visiblePending);
+            Assert.Equal(System.Windows.Visibility.Collapsed, collapsedApproved);
+        }
     }
 }

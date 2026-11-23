@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -835,16 +836,31 @@ namespace TarazInvoice.Services
             }
         }
 
-        public void PrintOrExportToPdf(ProformaInvoice invoice)
+        public void PrintOrExportToPdf(ProformaInvoice invoice, AppSettings? overrideSettings = null)
         {
-            var doc = CreateInvoiceFlowDocument(invoice);
-            var printDialog = new PrintDialog();
-            string docTitle = GetSafeInvoiceFileName(invoice, "");
-
-            if (printDialog.ShowDialog() == true)
+            try
             {
-                IDocumentPaginatorSource idpSource = doc;
-                printDialog.PrintDocument(idpSource.DocumentPaginator, docTitle);
+                string tempDir = Path.Combine(Path.GetTempPath(), "TarazInvoice", "PrintPreview");
+                if (!Directory.Exists(tempDir))
+                {
+                    Directory.CreateDirectory(tempDir);
+                }
+
+                string safeName = GetSafeInvoiceFileName(invoice, "pdf");
+                string fileName = $"{Path.GetFileNameWithoutExtension(safeName)}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+                string tempPdfPath = Path.Combine(tempDir, fileName);
+
+                SaveInvoiceAsPdfFile(invoice, tempPdfPath, overrideSettings);
+
+                var psi = new ProcessStartInfo(tempPdfPath)
+                {
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"خطا در باز کردن پیش‌نمایش و چاپ پیش‌فاکتور:\n{ex.Message}", "خطا در چاپ", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

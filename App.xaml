@@ -602,6 +602,7 @@
             <converters:DecimalNumberConverter x:Key="DecimalNumberConverter"/>
             <converters:NullablePercentConverter x:Key="NullablePercentConverter"/>
             <converters:NullablePercentDisplayConverter x:Key="NullablePercentDisplayConverter"/>
+            <converters:NotApprovedToVisibilityConverter x:Key="NotApprovedToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
