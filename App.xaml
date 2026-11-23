@@ -674,25 +674,40 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="DataGridColumnHeader">
-                            <Border Background="{TemplateBinding Background}" 
-                                    BorderBrush="{TemplateBinding BorderBrush}" 
-                                    BorderThickness="{TemplateBinding BorderThickness}" 
-                                    Padding="{TemplateBinding Padding}" 
-                                    SnapsToDevicePixels="True">
-                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                        <Grid x:Name="SortIconContainer" Margin="4,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
-                                            <!-- آیکون خنثی قبل از سورت (نشان‌دهنده قابل سورت بودن) -->
-                                            <ui:SymbolIcon x:Name="SortIconNeutral" Symbol="ArrowSort20" FontSize="11" Foreground="#94A3B8"/>
-                                            <!-- آیکون صعودی -->
-                                            <ui:SymbolIcon x:Name="SortIconAsc" Symbol="ArrowUp20" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Visibility="Collapsed"/>
-                                            <!-- آیکون نزولی -->
-                                            <ui:SymbolIcon x:Name="SortIconDesc" Symbol="ArrowDown20" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Visibility="Collapsed"/>
-                                        </Grid>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
+                            <Grid SnapsToDevicePixels="True">
+                                <Border Background="{TemplateBinding Background}" 
+                                        BorderBrush="{TemplateBinding BorderBrush}" 
+                                        BorderThickness="{TemplateBinding BorderThickness}" 
+                                        Padding="{TemplateBinding Padding}">
+                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                            <Grid x:Name="SortIconContainer" Margin="4,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                                                <!-- آیکون خنثی قبل از سورت (نشان‌دهنده قابل سورت بودن) -->
+                                                <ui:SymbolIcon x:Name="SortIconNeutral" Symbol="ArrowSort20" FontSize="11" Foreground="#94A3B8"/>
+                                                <!-- آیکون صعودی -->
+                                                <ui:SymbolIcon x:Name="SortIconAsc" Symbol="ArrowUp20" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Visibility="Collapsed"/>
+                                                <!-- آیکون نزولی -->
+                                                <ui:SymbolIcon x:Name="SortIconDesc" Symbol="ArrowDown20" FontSize="11" Foreground="{StaticResource PrimaryBrush}" Visibility="Collapsed"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left" Width="8" Cursor="SizeWE" Background="Transparent">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Background="Transparent" Width="{TemplateBinding Width}"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                                <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right" Width="8" Cursor="SizeWE" Background="Transparent">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Background="Transparent" Width="{TemplateBinding Width}"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="CanUserSort" Value="True">
                                     <Setter Property="Cursor" Value="Hand"/>
