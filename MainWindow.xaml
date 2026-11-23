@@ -1310,7 +1310,7 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- تیک ویژه محاسبه تقسیم بر ۱.۱ با تک‌کلیک سریع -->
-                                                <DataGridTemplateColumn x:Name="Col1Point1" Width="52" MinWidth="48" CanUserResize="False">
+                                                <DataGridTemplateColumn x:Name="Col1Point1" Width="52" MinWidth="44" CanUserResize="True">
                                                     <DataGridTemplateColumn.HeaderTemplate>
                                                         <DataTemplate>
                                                             <TextBlock Text="تقسیم ۱.۱" FontSize="11" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" ToolTip="اعمال تقسیم بر ۱.۱ روی قیمت پس از تخفیف"/>
@@ -1396,7 +1396,7 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- عملیات سطر (منوی یکپارچه و کم‌جا) -->
-                                                <DataGridTemplateColumn CanUserSort="False" CanUserResize="False" Header="عملیات" Width="46" MinWidth="44">
+                                                <DataGridTemplateColumn CanUserSort="False" CanUserResize="True" Header="عملیات" Width="48" MinWidth="40">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
                                                             <ui:Button Style="{StaticResource TableActionButton}" Margin="0" ToolTip="عملیات سطر" 
