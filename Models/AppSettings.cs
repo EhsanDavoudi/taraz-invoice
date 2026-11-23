@@ -5,6 +5,8 @@ namespace TarazInvoice.Models
 {
     public class AppSettings
     {
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
         // اطلاعات شرکت ما (فروشنده)
         public string SellerName { get; set; } = "شرکت آریان نیرو گستر اترک";
         public string SellerNationalCode { get; set; } = "14008765432";

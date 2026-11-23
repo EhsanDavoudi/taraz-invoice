@@ -374,7 +374,10 @@ namespace TarazInvoice.Services
                         row.RelativeItem().PaddingTop(Px(20)).Text(t =>
                         {
                             t.AlignEnd();
-                            t.Span($"{PrintPdfService.ResolveExpertRole(invoice, s)} {invoice.ExpertName}").FontSize(body).FontColor("#334155");
+                            if (!string.IsNullOrWhiteSpace(invoice.ExpertName) && invoice.ExpertName != "(بدون کارشناس)")
+                            {
+                                t.Span($"{PrintPdfService.ResolveExpertRole(invoice, s)} {invoice.ExpertName}").FontSize(body).FontColor("#334155");
+                            }
                         });
                     });
 

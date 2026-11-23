@@ -39,7 +39,6 @@ namespace TarazInvoice
         private bool _isGridItemUserTyping = false;
         private string _gridItemLoadedText = string.Empty;
         private System.Windows.Threading.DispatcherTimer? _networkSyncTimer = null;
-        private System.Windows.Threading.DispatcherTimer? _autoSaveTimer = null;
 
         // وضعیت فعلی شرکت و کارشناس در حال ویرایش
         private Company? _currentEditingCompany = null;
@@ -70,13 +69,6 @@ namespace TarazInvoice
             _excelService = new ExcelExportService(_storage);
             _printService = new PrintPdfService(_storage);
 
-            _autoSaveTimer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(3)
-            };
-            _autoSaveTimer.Tick += AutoSaveTimer_Tick;
-            _autoSaveTimer.Start();
-
             Loaded += MainWindow_Loaded;
             Closing += MainWindow_Closing;
             Activated += MainWindow_Activated;
@@ -99,11 +91,6 @@ namespace TarazInvoice
             if (_networkSyncTimer != null)
             {
                 _networkSyncTimer.Stop();
-            }
-
-            if (_currentEditingInvoice != null && (ViewInvoiceEditor?.Visibility == Visibility.Visible || _isDirty))
-            {
-                SaveDraftSilently();
             }
         }
 
@@ -153,13 +140,22 @@ namespace TarazInvoice
                 var comp = CmbEditorCompany?.SelectedItem as Company;
                 var allExperts = _storage.GetExperts().OrderBy(e => e.FullName).ToList();
                 var experts = (comp != null) ? allExperts.Where(x => x.BelongsToCompany(comp.Id)).ToList() : allExperts;
-                if (experts.Count == 0) experts = allExperts;
+
+                var expertList = new List<Expert>
+                {
+                    new Expert { Id = Guid.Empty, FullName = "(بدون کارشناس)", RoleTitle = "" }
+                };
+                expertList.AddRange(experts);
 
                 CmbEditorExpert.ItemsSource = null;
-                CmbEditorExpert.ItemsSource = experts;
-                if (curExpId.HasValue)
+                CmbEditorExpert.ItemsSource = expertList;
+                if (curExpId.HasValue && curExpId.Value != Guid.Empty)
                 {
-                    CmbEditorExpert.SelectedItem = experts.FirstOrDefault(e => e.Id == curExpId.Value);
+                    CmbEditorExpert.SelectedItem = expertList.FirstOrDefault(e => e.Id == curExpId.Value) ?? expertList[0];
+                }
+                else
+                {
+                    CmbEditorExpert.SelectedIndex = 0;
                 }
             }
 
@@ -227,15 +223,32 @@ namespace TarazInvoice
         {
             _isDirty = dirty;
             UpdateWindowTitle();
-            if (TxtTopAutoSaveStatus != null)
+            if (IcoTopSaveStatus != null && TxtTopSaveStatus != null && BrdTopSaveStatus != null)
             {
-                TxtTopAutoSaveStatus.Text = dirty ? "تغییرات ذخیره‌نشده..." : $"ذخیره خودکار: {DateTime.Now:HH:mm:ss}";
+                if (dirty)
+                {
+                    IcoTopSaveStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Edit24;
+                    IcoTopSaveStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#D97706"));
+                    TxtTopSaveStatus.Text = "تغییرات ذخیره‌نشده (Ctrl + S)";
+                    TxtTopSaveStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#D97706"));
+                    BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFFBEB"));
+                    BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FDE68A"));
+                }
+                else
+                {
+                    IcoTopSaveStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle24;
+                    IcoTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                    TxtTopSaveStatus.Text = _isNewInvoice ? "آماده (Ctrl + S)" : $"ذخیره شد ({DateTime.Now:HH:mm:ss}) - Ctrl+S";
+                    TxtTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                    BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F0FDF4"));
+                    BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBF7D0"));
+                }
             }
         }
 
         private void UpdateWindowTitle()
         {
-            const string baseTitle = "تـراز (نسخه ۱.۰.۰) - سامانه جامع صدور و مدیریت پیش‌فاکتور";
+            const string baseTitle = "تـراز (نسخه ۱.۰.۱) - سامانه جامع صدور و مدیریت پیش‌فاکتور";
             if (_isDirty && ViewInvoiceEditor != null && ViewInvoiceEditor.Visibility == Visibility.Visible)
             {
                 Title = $"* {baseTitle} (ویرایش پیش‌فاکتور - تغییرات ذخیره‌نشده)";
@@ -317,11 +330,21 @@ namespace TarazInvoice
                 var comp = CmbEditorCompany.SelectedItem as Company;
                 var allExperts = _storage.GetExperts().OrderBy(ex => ex.FullName).ToList();
                 var experts = (comp != null) ? allExperts.Where(x => x.BelongsToCompany(comp.Id)).ToList() : allExperts;
-                if (experts.Count == 0) experts = allExperts;
-                CmbEditorExpert.ItemsSource = experts;
-                if (curId.HasValue)
+
+                var expertList = new List<Expert>
                 {
-                    CmbEditorExpert.SelectedItem = experts.FirstOrDefault(x => x.Id == curId.Value);
+                    new Expert { Id = Guid.Empty, FullName = "(بدون کارشناس)", RoleTitle = "" }
+                };
+                expertList.AddRange(experts);
+
+                CmbEditorExpert.ItemsSource = expertList;
+                if (curId.HasValue && curId.Value != Guid.Empty)
+                {
+                    CmbEditorExpert.SelectedItem = expertList.FirstOrDefault(x => x.Id == curId.Value) ?? expertList[0];
+                }
+                else
+                {
+                    CmbEditorExpert.SelectedIndex = 0;
                 }
             }
             catch { }
@@ -657,13 +680,6 @@ namespace TarazInvoice
         private void SwitchToView(string viewName)
         {
             if (ViewInvoices == null) return;
-
-            // ذخیره خودکار پیش‌نویس در صورت خروج از صفحه ویرایشگر تا اطلاعات کاربر هرگز از بین نرود
-            if (ViewInvoiceEditor != null && ViewInvoiceEditor.Visibility == Visibility.Visible && _isDirty && viewName != "Editor")
-            {
-                SaveDraftSilently();
-                SetStatus("پیش‌فاکتور به صورت خودکار در وضعیت «پیش‌نویس» ذخیره گردید.");
-            }
 
             if (ViewInvoices != null) ViewInvoices.Visibility = Visibility.Collapsed;
             if (ViewInvoiceEditor != null) ViewInvoiceEditor.Visibility = Visibility.Collapsed;
@@ -1266,14 +1282,7 @@ namespace TarazInvoice
                 return;
             }
 
-            if (experts.Count == 0)
-            {
-                MessageBox.Show("لطفاً ابتدا حداقل یک کارشناس ثبت نمایید.", "توجه", MessageBoxButton.OK, MessageBoxImage.Information);
-                SwitchToView("Experts");
-                return;
-            }
-
-            var defaultExpert = experts.First();
+            var defaultExpert = experts.FirstOrDefault();
             var defaultCompany = companies.First();
             var settings = _storage.GetSettings();
 
@@ -1288,13 +1297,13 @@ namespace TarazInvoice
                 CompanyAddress = defaultCompany.Address,
                 CompanyEconomicCode = defaultCompany.EconomicCode,
                 CompanyNationalCode = defaultCompany.NationalCode,
-                ExpertId = defaultExpert.Id,
-                ExpertName = defaultExpert.FullName,
-                ExpertPhone = defaultExpert.PhoneNumber,
+                ExpertId = defaultExpert?.Id ?? Guid.Empty,
+                ExpertName = defaultExpert?.FullName ?? "",
+                ExpertPhone = defaultExpert?.PhoneNumber ?? "",
                 Status = InvoiceStatus.Draft,
                 Notes = !string.IsNullOrWhiteSpace(settings.DefaultTerms) ? settings.DefaultTerms : "۱. فرایند تحویل بار پس از وصول پیش‌پرداخت در صورت عدم تغییر قیمت انجام خواهد شد.\n۲. در صورت تغییر قیمت، پیش‌فاکتور اصلاحی تقدیم می‌گردد.",
                 PaymentTerms = !string.IsNullOrWhiteSpace(settings.PaymentTerms) ? settings.PaymentTerms : "نقد",
-                DeliveryDays = !string.IsNullOrWhiteSpace(settings.DeliveryDays) ? settings.DeliveryDays : "سه روز کاری",
+                DeliveryDays = !string.IsNullOrWhiteSpace(settings.DeliveryDays) ? settings.DeliveryDays : "موجود",
                 DeliveryLocation = !string.IsNullOrWhiteSpace(settings.DeliveryLocation) ? settings.DeliveryLocation : "مشهد",
                 VatPercent = settings.VatPercent >= 0 ? settings.VatPercent : 10m,
                 Items = new List<InvoiceItem>()
@@ -1314,9 +1323,20 @@ namespace TarazInvoice
             CmbEditorCompany.SelectedItem = companies.FirstOrDefault(c => c.Id == invoice.CompanyId);
 
             var experts = _storage.GetExperts();
-            CmbEditorExpert.ItemsSource = experts;
-            var currentExp = experts.FirstOrDefault(e => e.Id == invoice.ExpertId);
-            CmbEditorExpert.SelectedItem = currentExp;
+            var expertList = new List<Expert>
+            {
+                new Expert { Id = Guid.Empty, FullName = "(بدون کارشناس)", RoleTitle = "" }
+            };
+            expertList.AddRange(experts);
+            CmbEditorExpert.ItemsSource = expertList;
+            if (invoice.ExpertId != Guid.Empty && !string.IsNullOrWhiteSpace(invoice.ExpertName))
+            {
+                CmbEditorExpert.SelectedItem = expertList.FirstOrDefault(e => e.Id == invoice.ExpertId) ?? expertList[0];
+            }
+            else
+            {
+                CmbEditorExpert.SelectedIndex = 0;
+            }
 
             TxtEditorInvoiceNumber.Text = invoice.InvoiceNumber;
             TxtEditorIssueDate.Text = invoice.IssueDateShamsi;
@@ -1477,17 +1497,26 @@ namespace TarazInvoice
                 // فیلتر کارشناسان متناسب با انتساب به این شرکت (کارشناسان اختصاصی یا عمومی)
                 var allExperts = _storage.GetExperts();
                 var filtered = allExperts.Where(exp => exp.BelongsToCompany(company.Id)).ToList();
-                if (filtered.Count == 0) filtered = allExperts;
+
+                var expertList = new List<Expert>
+                {
+                    new Expert { Id = Guid.Empty, FullName = "(بدون کارشناس)", RoleTitle = "" }
+                };
+                expertList.AddRange(filtered);
 
                 var curExp = CmbEditorExpert.SelectedItem as Expert;
-                CmbEditorExpert.ItemsSource = filtered;
-                if (curExp != null && filtered.Any(x => x.Id == curExp.Id))
+                CmbEditorExpert.ItemsSource = expertList;
+                if (curExp != null && curExp.Id != Guid.Empty && filtered.Any(x => x.Id == curExp.Id))
                 {
-                    CmbEditorExpert.SelectedItem = filtered.First(x => x.Id == curExp.Id);
+                    CmbEditorExpert.SelectedItem = expertList.First(x => x.Id == curExp.Id);
+                }
+                else if (filtered.Count > 0)
+                {
+                    CmbEditorExpert.SelectedItem = filtered.First();
                 }
                 else
                 {
-                    CmbEditorExpert.SelectedItem = filtered.FirstOrDefault();
+                    CmbEditorExpert.SelectedIndex = 0;
                 }
             }
         }
@@ -1587,11 +1616,7 @@ namespace TarazInvoice
                 return false;
             }
 
-            if (CmbEditorExpert.SelectedItem is not Expert expert)
-            {
-                MessageBox.Show("لطفاً کارشناس صادرکننده را انتخاب نمایید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
-            }
+            var expert = CmbEditorExpert?.SelectedItem as Expert;
 
             if (string.IsNullOrWhiteSpace(TxtEditorInvoiceNumber.Text))
             {
@@ -1631,9 +1656,18 @@ namespace TarazInvoice
             _currentEditingInvoice.CompanyEconomicCode = company.EconomicCode;
             _currentEditingInvoice.CompanyNationalCode = company.NationalCode;
 
-            _currentEditingInvoice.ExpertId = expert.Id;
-            _currentEditingInvoice.ExpertName = expert.FullName;
-            _currentEditingInvoice.ExpertPhone = expert.PhoneNumber;
+            if (expert != null && expert.Id != Guid.Empty && expert.FullName != "(بدون کارشناس)")
+            {
+                _currentEditingInvoice.ExpertId = expert.Id;
+                _currentEditingInvoice.ExpertName = expert.FullName;
+                _currentEditingInvoice.ExpertPhone = expert.PhoneNumber;
+            }
+            else
+            {
+                _currentEditingInvoice.ExpertId = Guid.Empty;
+                _currentEditingInvoice.ExpertName = "";
+                _currentEditingInvoice.ExpertPhone = "";
+            }
 
             _currentEditingInvoice.InvoiceNumber = TxtEditorInvoiceNumber.Text.Trim();
             _currentEditingInvoice.IssueDateShamsi = TxtEditorIssueDate.Text?.Trim() ?? JalaliDateHelper.GetCurrentShamsiDate();
@@ -1700,124 +1734,6 @@ namespace TarazInvoice
             RefreshAll();
             SetStatus($"پیش‌فاکتور شماره {_currentEditingInvoice.InvoiceNumber} با موفقیت ذخیره شد.");
             return true;
-        }
-
-        private void SaveDraftSilently()
-        {
-            if (_currentEditingInvoice == null) return;
-            try
-            {
-                if (CmbEditorCompany?.SelectedItem is Company company)
-                {
-                    _currentEditingInvoice.CompanyId = company.Id;
-                    _currentEditingInvoice.CompanyName = company.Name;
-                    _currentEditingInvoice.CompanyPhone = TxtEditorCompanyPhone?.Text?.Trim() ?? "";
-                    _currentEditingInvoice.CompanyAddress = TxtEditorCompanyAddress?.Text?.Trim() ?? "";
-                    _currentEditingInvoice.CompanyEconomicCode = company.EconomicCode;
-                    _currentEditingInvoice.CompanyNationalCode = company.NationalCode;
-                }
-
-                if (CmbEditorExpert?.SelectedItem is Expert expert)
-                {
-                    _currentEditingInvoice.ExpertId = expert.Id;
-                    _currentEditingInvoice.ExpertName = expert.FullName;
-                    _currentEditingInvoice.ExpertPhone = expert.PhoneNumber;
-                }
-
-                if (TxtEditorInvoiceNumber != null) _currentEditingInvoice.InvoiceNumber = TxtEditorInvoiceNumber.Text.Trim();
-                if (TxtEditorIssueDate != null) _currentEditingInvoice.IssueDateShamsi = TxtEditorIssueDate.Text?.Trim() ?? JalaliDateHelper.GetCurrentShamsiDate();
-                _currentEditingInvoice.ValidUntilShamsi = _currentEditingInvoice.IssueDateShamsi;
-                if (CmbEditorStatus != null && CmbEditorStatus.SelectedIndex >= 0)
-                {
-                    _currentEditingInvoice.Status = (InvoiceStatus)CmbEditorStatus.SelectedIndex;
-                }
-                else
-                {
-                    _currentEditingInvoice.Status = InvoiceStatus.Draft;
-                }
-                if (TxtEditorCustomerPrefix != null) _currentEditingInvoice.CustomerLabelPrefix = TxtEditorCustomerPrefix.Text?.Trim() ?? "نام مشتری شرکت محترم ";
-                if (TxtEditorSubject != null) _currentEditingInvoice.Subject = TxtEditorSubject.Text?.Trim() ?? "";
-                if (TxtEditorAttachment != null) _currentEditingInvoice.Attachment = TxtEditorAttachment.Text?.Trim() ?? "ندارد";
-                if (TxtEditorPageNumberText != null) _currentEditingInvoice.PageNumberText = TxtEditorPageNumberText.Text?.Trim() ?? "یک";
-                _currentEditingInvoice.CurrencyUnit = "ریال";
-                if (TxtEditorValidityText != null) _currentEditingInvoice.ValidityText = TxtEditorValidityText.Text?.Trim() ?? "";
-                if (TxtEditorNotes != null) _currentEditingInvoice.Notes = TxtEditorNotes.Text?.Trim() ?? "";
-                if (TxtEditorPaymentTerms != null) _currentEditingInvoice.PaymentTerms = TxtEditorPaymentTerms.Text?.Trim() ?? "نقد";
-                if (TxtEditorDeliveryDays != null) _currentEditingInvoice.DeliveryDays = TxtEditorDeliveryDays.Text?.Trim() ?? "موجود";
-                if (TxtEditorDeliveryLocation != null) _currentEditingInvoice.DeliveryLocation = TxtEditorDeliveryLocation.Text?.Trim() ?? "مشهد";
-                if (TxtEditorSignatoryName != null) _currentEditingInvoice.SignatoryName = TxtEditorSignatoryName.Text?.Trim() ?? "محمد احمدی پور هدش";
-                if (TxtEditorExpertRole != null) _currentEditingInvoice.ExpertRoleLabel = TxtEditorExpertRole.Text?.Trim() ?? "کارشناسی خرید:";
-
-                if (TxtEditorVatPercent != null && decimal.TryParse(TxtEditorVatPercent.Text?.Trim(), out decimal vat) && vat >= 0)
-                {
-                    _currentEditingInvoice.VatPercent = vat;
-                }
-
-                if (ChkHighlightValidity != null) _currentEditingInvoice.HighlightValidity = ChkHighlightValidity.IsChecked == true;
-                if (ChkHighlightPaymentTerms != null) _currentEditingInvoice.HighlightPaymentTerms = ChkHighlightPaymentTerms.IsChecked == true;
-                if (ChkHighlightDeliveryDays != null) _currentEditingInvoice.HighlightDeliveryDays = ChkHighlightDeliveryDays.IsChecked == true;
-                if (ChkHighlightDeliveryLocation != null) _currentEditingInvoice.HighlightDeliveryLocation = ChkHighlightDeliveryLocation.IsChecked == true;
-                if (ChkHighlightNotes != null) _currentEditingInvoice.HighlightNotes = ChkHighlightNotes.IsChecked == true;
-                if (ChkHighlightVat != null) _currentEditingInvoice.HighlightVat = ChkHighlightVat.IsChecked == true;
-
-                _currentEditingInvoice.Items = _editingItems.ToList();
-                _currentEditingInvoice.BankAccounts = _editingBankAccounts.ToList();
-                _currentEditingInvoice.UpdatedAt = DateTime.Now;
-
-                if (_isNewInvoice)
-                {
-                    if (string.IsNullOrWhiteSpace(_currentEditingInvoice.InvoiceNumber) ||
-                        _storage.IsInvoiceNumberInUse(_currentEditingInvoice.InvoiceNumber, _currentEditingInvoice.Id))
-                    {
-                        _currentEditingInvoice.InvoiceNumber = _storage.GenerateNextUniqueInvoiceNumber();
-                        if (TxtEditorInvoiceNumber != null) TxtEditorInvoiceNumber.Text = _currentEditingInvoice.InvoiceNumber;
-                    }
-                    else
-                    {
-                        _storage.RegisterUsedInvoiceNumber(_currentEditingInvoice.InvoiceNumber);
-                    }
-                    _isNewInvoice = false;
-                }
-
-                _storage.AddOrUpdateInvoice(_currentEditingInvoice);
-                SetDirty(false);
-
-                if (TxtTopAutoSaveStatus != null)
-                {
-                    TxtTopAutoSaveStatus.Text = $"ذخیره خودکار: {DateTime.Now:HH:mm:ss}";
-                }
-            }
-            catch
-            {
-                // نادیده گرفتن استثنای ذخیره موقت
-            }
-        }
-
-        private void AutoSaveTimer_Tick(object? sender, EventArgs e)
-        {
-            if (!_isDirty) return;
-            if (ViewInvoiceEditor == null || ViewInvoiceEditor.Visibility != Visibility.Visible) return;
-            if (_currentEditingInvoice == null) return;
-
-            // ذخیره خودکار در صورتی که حداقل یک قلم یا شرکت یا موضوع وارد شده باشد
-            bool hasContent = _editingItems.Count > 0 ||
-                              !string.IsNullOrWhiteSpace(TxtEditorSubject?.Text) ||
-                              CmbEditorCompany?.SelectedItem != null;
-
-            if (!hasContent) return;
-
-            try
-            {
-                try
-                {
-                    DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Cell, true);
-                    DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Row, true);
-                }
-                catch { }
-
-                SaveDraftSilently();
-            }
-            catch { }
         }
 
         private void BtnApplyBulkDiscount_Click(object sender, RoutedEventArgs e)
@@ -2250,13 +2166,81 @@ namespace TarazInvoice
 
         #endregion
 
-        private void BtnSaveInvoice_Click(object sender, RoutedEventArgs e)
+        private async void BtnSaveInvoice_Click(object sender, RoutedEventArgs e)
         {
-            if (SaveCurrentInvoiceFromEditor())
+            await SaveInvoiceWithLoadingAnimationAsync();
+        }
+
+        private async Task<bool> SaveInvoiceWithLoadingAnimationAsync()
+        {
+            if (BtnTopSaveInvoice != null) BtnTopSaveInvoice.IsEnabled = false;
+            if (PrgSaveLoading != null) PrgSaveLoading.Visibility = Visibility.Visible;
+            if (IcoTopSaveStatus != null) IcoTopSaveStatus.Visibility = Visibility.Collapsed;
+            if (TxtTopSaveStatus != null)
             {
-                // کاربر در ادیتور پیش‌فاکتور باقی می‌ماند و به صفحه فاکتورها پرتاب نمی‌شود
-                SetStatus($"پیش‌فاکتور شماره {_currentEditingInvoice!.InvoiceNumber} با موفقیت ذخیره شد.");
+                TxtTopSaveStatus.Text = "در حال ذخیره‌سازی...";
+                TxtTopSaveStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
             }
+            if (BrdTopSaveStatus != null)
+            {
+                BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EFF6FF"));
+                BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BFDBFE"));
+            }
+
+            try
+            {
+                DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Cell, true);
+                DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Row, true);
+            }
+            catch { }
+
+            // تأخیر ملایم جهت نمایش انیمیشن لودینگ و ثبت روان
+            await Task.Delay(200);
+
+            bool success = SaveCurrentInvoiceFromEditor();
+
+            if (PrgSaveLoading != null) PrgSaveLoading.Visibility = Visibility.Collapsed;
+            if (IcoTopSaveStatus != null) IcoTopSaveStatus.Visibility = Visibility.Visible;
+            if (BtnTopSaveInvoice != null) BtnTopSaveInvoice.IsEnabled = true;
+
+            if (success)
+            {
+                if (IcoTopSaveStatus != null)
+                {
+                    IcoTopSaveStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.CheckmarkCircle24;
+                    IcoTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                }
+                if (TxtTopSaveStatus != null)
+                {
+                    TxtTopSaveStatus.Text = _isNewInvoice ? "آماده (Ctrl + S)" : $"ذخیره شد ({DateTime.Now:HH:mm:ss}) - Ctrl+S";
+                    TxtTopSaveStatus.Foreground = (Brush)FindResource("SuccessBrush");
+                }
+                if (BrdTopSaveStatus != null)
+                {
+                    BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F0FDF4"));
+                    BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBF7D0"));
+                }
+            }
+            else
+            {
+                if (IcoTopSaveStatus != null)
+                {
+                    IcoTopSaveStatus.Symbol = Wpf.Ui.Controls.SymbolRegular.Warning24;
+                    IcoTopSaveStatus.Foreground = (Brush)FindResource("DangerBrush");
+                }
+                if (TxtTopSaveStatus != null)
+                {
+                    TxtTopSaveStatus.Text = "خطا در ذخیره (اطلاعات ناقص)";
+                    TxtTopSaveStatus.Foreground = (Brush)FindResource("DangerBrush");
+                }
+                if (BrdTopSaveStatus != null)
+                {
+                    BrdTopSaveStatus.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FEF2F2"));
+                    BrdTopSaveStatus.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FECACA"));
+                }
+            }
+
+            return success;
         }
 
         private void BtnSaveAndExportExcel_Click(object sender, RoutedEventArgs e)
@@ -2447,10 +2431,19 @@ namespace TarazInvoice
 
         private void BtnCancelEditor_Click(object sender, RoutedEventArgs e)
         {
-            if (_isDirty && _currentEditingInvoice != null)
+            if (_isDirty)
             {
-                SaveDraftSilently();
-                SetStatus("پیش‌فاکتور به صورت «پیش‌نویس» ذخیره گردید.");
+                var confirm = MessageBox.Show(
+                    "تغییراتی در پیش‌فاکتور اعمال شده که هنوز ذخیره نشده است.\nآیا از انصراف و بازگشت بدون ذخیره اطمینان دارید؟",
+                    "تأیید انصراف",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+                SetDirty(false);
             }
             SwitchToView("Invoices");
         }
@@ -3204,18 +3197,19 @@ namespace TarazInvoice
             settings.SellerPhone = TxtSellerPhone.Text?.Trim() ?? "";
             settings.SellerAddress = TxtSellerAddress.Text?.Trim() ?? "";
             SaveInvoiceNumberingSettings();
-            _storage.Save();
+            _storage.SaveSettings(settings);
 
-            SetStatus("مشخصات فروشنده با موفقیت ذخیره شد.");
-            MessageBox.Show("مشخصات شرکت فروشنده با موفقیت ذخیره شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+            SetStatus("مشخصات فروشنده با موفقیت در پایگاه‌داده ذخیره شد.");
+            MessageBox.Show("مشخصات شرکت فروشنده با موفقیت در پایگاه‌داده ذخیره شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnSaveInvoiceNumberingSettings_Click(object sender, RoutedEventArgs e)
         {
+            var settings = _storage.GetSettings();
             SaveInvoiceNumberingSettings();
-            _storage.Save();
-            SetStatus("تنظیمات پیشوند و شماره‌گذاری پیش‌فاکتور با موفقیت ذخیره شد.");
-            MessageBox.Show("تنظیمات پیشوند و شماره پیش‌فاکتور با موفقیت ذخیره شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+            _storage.SaveSettings(settings);
+            SetStatus("تنظیمات پیشوند و شماره‌گذاری پیش‌فاکتور در پایگاه‌داده ذخیره شد.");
+            MessageBox.Show("تنظیمات پیشوند و شماره پیش‌فاکتور در پایگاه‌داده ذخیره شد.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void SaveInvoiceNumberingSettings()
@@ -3588,10 +3582,10 @@ namespace TarazInvoice
             }
 
             SaveInvoiceNumberingSettings();
-            _storage.Save();
+            _storage.SaveSettings(settings);
             RefreshAll();
-            SetStatus("تنظیمات سربرگ، تصویر، مهر و فونت‌ها با موفقیت ذخیره شد.");
-            MessageBox.Show("تنظیمات سربرگ، تصویر شرکت، مهر و فونت‌ها با موفقیت ذخیره گردید.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
+            SetStatus("تنظیمات سربرگ، مقاصد، تصاویر و فونت‌ها در پایگاه‌داده ذخیره شد.");
+            MessageBox.Show("تنظیمات سربرگ، تصویر شرکت، محل‌های تحویل و فونت‌ها با موفقیت در پایگاه‌داده ذخیره گردید.", "موفقیت", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void OnSettingsControlChanged(object sender, TextChangedEventArgs e)

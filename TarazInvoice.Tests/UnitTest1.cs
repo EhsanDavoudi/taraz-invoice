@@ -2069,5 +2069,87 @@ namespace TarazInvoice.Tests
             var expert = new Expert();
             Assert.Equal("کارشناس خرید", expert.RoleTitle);
         }
+
+        [Fact]
+        public void Test_ProformaInvoice_HighlightsDefaultToFalse()
+        {
+            var invoice = new ProformaInvoice();
+            Assert.False(invoice.HighlightValidity);
+            Assert.False(invoice.HighlightPaymentTerms);
+            Assert.False(invoice.HighlightNotes);
+            Assert.False(invoice.HighlightDeliveryDays);
+            Assert.False(invoice.HighlightDeliveryLocation);
+            Assert.False(invoice.HighlightVat);
+        }
+
+        [Fact]
+        public void Test_StorageService_SettingsDbSyncAndMerge()
+        {
+            var local = new DatabaseModel();
+            local.Settings.DeliveryLocation = "تهران";
+            local.Settings.DeliveryDays = "یک روزه";
+            local.Settings.UpdatedAt = DateTime.Now.AddMinutes(5);
+
+            var primary = new DatabaseModel();
+            primary.Settings.DeliveryLocation = "مشهد";
+            primary.Settings.DeliveryDays = "سه روز کاری";
+            primary.Settings.UpdatedAt = DateTime.Now;
+
+            var merged = StorageService.MergeDatabases(local, primary);
+            Assert.Equal("تهران", merged.Settings.DeliveryLocation);
+            Assert.Equal("یک روزه", merged.Settings.DeliveryDays);
+        }
+
+        [Fact]
+        public void Test_PrintPdf_WithoutExpert_DoesNotThrow()
+        {
+            var invoice = new ProformaInvoice
+            {
+                InvoiceNumber = "INV-NO-EXP",
+                CompanyName = "شرکت تست بدون کارشناس",
+                ExpertId = Guid.Empty,
+                ExpertName = "",
+                Items = new List<InvoiceItem>
+                {
+                    new InvoiceItem { RowNumber = 1, ItemName = "محصول ۱", Quantity = 1, RawPrice = 10000 }
+                }
+            };
+            foreach (var it in invoice.Items) it.UpdateFromPercent();
+
+            // 1. تست تولید PDF توسط InvoicePdfBuilder با متد Save در فایل موقت
+            string tempPdf = Path.Combine(Path.GetTempPath(), $"invoice_test_{Guid.NewGuid()}.pdf");
+            try
+            {
+                InvoicePdfBuilder.Save(invoice, new AppSettings(), tempPdf);
+                Assert.True(File.Exists(tempPdf));
+                Assert.True(new FileInfo(tempPdf).Length > 0);
+            }
+            finally
+            {
+                if (File.Exists(tempPdf)) File.Delete(tempPdf);
+            }
+
+            // 2. تست تولید سند FlowDocument برای چاپ در نخ STA
+            Exception? threadEx = null;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var storage = new StorageService();
+                    var pdfService = new PrintPdfService(storage);
+                    var doc = pdfService.CreateInvoiceFlowDocument(invoice);
+                    Assert.NotNull(doc);
+                }
+                catch (Exception ex)
+                {
+                    threadEx = ex;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.Null(threadEx);
+        }
     }
 }

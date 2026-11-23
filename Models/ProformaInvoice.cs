@@ -70,11 +70,11 @@ namespace TarazInvoice.Models
         // حساب‌های بانکی اختصاصی این پیش‌فاکتور (در صورت عدم تعیین، از تنظیمات سامانه خوانده می‌شود)
         public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>();
 
-        // قابلیت هایلایت (برجسته‌سازی زرد) بخش‌های مهم پیش‌فاکتور (مطابق نمونه کاربر)
-        public bool HighlightValidity { get; set; } = true;
+        // قابلیت هایلایت (برجسته‌سازی زرد) بخش‌های مهم پیش‌فاکتور (پیش‌فرض خاموش)
+        public bool HighlightValidity { get; set; } = false;
         public bool HighlightPaymentTerms { get; set; } = false;
-        public bool HighlightNotes { get; set; } = true;
-        public bool HighlightDeliveryDays { get; set; } = true;
+        public bool HighlightNotes { get; set; } = false;
+        public bool HighlightDeliveryDays { get; set; } = false;
         public bool HighlightDeliveryLocation { get; set; } = false;
         public bool HighlightVat { get; set; } = false;
 

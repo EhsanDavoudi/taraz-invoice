@@ -504,11 +504,14 @@ namespace TarazInvoice.Services
             // ==================== ۶. امضا، مهر و مسئول (مطابق تصویر) ====================
             // سمت چپ (ستون‌های ۵ و ۶ در راست‌چین): کارشناسی خرید / فروش
             string expRole = !string.IsNullOrWhiteSpace(invoice.ExpertRoleLabel) ? invoice.ExpertRoleLabel : (!string.IsNullOrWhiteSpace(settings.ExpertRoleLabel) ? settings.ExpertRoleLabel : "کارشناسی خرید:");
-            ws.Range(rowIdx, 5, rowIdx, 6).Merge();
-            ws.Cell(rowIdx, 5).Value = $"{expRole} {invoice.ExpertName}";
-            ws.Cell(rowIdx, 5).Style.Font.FontSize = 10;
-            ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
-            ws.Cell(rowIdx, 5).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            if (!string.IsNullOrWhiteSpace(invoice.ExpertName) && invoice.ExpertName != "(بدون کارشناس)")
+            {
+                ws.Range(rowIdx, 5, rowIdx, 6).Merge();
+                ws.Cell(rowIdx, 5).Value = $"{expRole} {invoice.ExpertName}";
+                ws.Cell(rowIdx, 5).Style.Font.FontSize = 10;
+                ws.Cell(rowIdx, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                ws.Cell(rowIdx, 5).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            }
 
             // سمت راست/وسط (ستون‌های ۲ و ۳): نام مسئول امضا و مهر
             string signatory = !string.IsNullOrWhiteSpace(invoice.SignatoryName) ? invoice.SignatoryName : (!string.IsNullOrWhiteSpace(settings.SignatoryName) ? settings.SignatoryName : "محمد احمدی پور هدش");

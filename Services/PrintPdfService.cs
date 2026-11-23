@@ -513,8 +513,11 @@ namespace TarazInvoice.Services
             var signRow = new TableRow();
 
             var expertSignCell = new TableCell { Padding = new Thickness(8, 20, 8, 8) };
-            expertSignCell.Blocks.Add(MakePara($"{ResolveExpertRole(invoice, settings)} {invoice.ExpertName}", font, fs, RtlEnd,
-                null, false, new SolidColorBrush(Color.FromRgb(51, 65, 85))));
+            if (!string.IsNullOrWhiteSpace(invoice.ExpertName) && invoice.ExpertName != "(بدون کارشناس)")
+            {
+                expertSignCell.Blocks.Add(MakePara($"{ResolveExpertRole(invoice, settings)} {invoice.ExpertName}", font, fs, RtlEnd,
+                    null, false, new SolidColorBrush(Color.FromRgb(51, 65, 85))));
+            }
 
             var sellerSignCell = new TableCell { Padding = new Thickness(8), TextAlignment = TextAlignment.Center };
             var signStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };

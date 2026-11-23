@@ -855,8 +855,18 @@ namespace TarazInvoice.Services
             merged.StorageItems = storageMap.Values.OrderBy(s => s.Name).ToList();
 
             // ۵. ادغام تنظیمات (Settings)
-            var baseSettings = primary.Settings ?? local.Settings ?? new AppSettings();
-            merged.Settings = baseSettings;
+            AppSettings mergedSettings;
+            if (primary.Settings != null && local.Settings != null)
+            {
+                mergedSettings = (local.Settings.UpdatedAt >= primary.Settings.UpdatedAt)
+                    ? local.Settings
+                    : primary.Settings;
+            }
+            else
+            {
+                mergedSettings = primary.Settings ?? local.Settings ?? new AppSettings();
+            }
+            merged.Settings = mergedSettings;
 
             // شماره‌گذاری بعدی پیش‌فاکتور باید بالاترین باشد تا تداخل رخ ندهد
             int maxNextNum = Math.Max(primary.Settings?.NextInvoiceNumber ?? 1001, local.Settings?.NextInvoiceNumber ?? 1001);
@@ -1062,6 +1072,31 @@ namespace TarazInvoice.Services
         {
             CheckAndReloadIfDiskChanged();
             return _data.Settings;
+        }
+
+        public void SaveSettings(AppSettings settings)
+        {
+            lock (_lock)
+            {
+                CheckAndReloadIfDiskChanged();
+                settings.UpdatedAt = DateTime.Now;
+                _data.Settings = settings;
+                SaveInternal(_data);
+            }
+            DataChanged?.Invoke();
+        }
+
+        public void UpdateSettings(Action<AppSettings> updateAction)
+        {
+            lock (_lock)
+            {
+                CheckAndReloadIfDiskChanged();
+                _data.Settings ??= new AppSettings();
+                updateAction(_data.Settings);
+                _data.Settings.UpdatedAt = DateTime.Now;
+                SaveInternal(_data);
+            }
+            DataChanged?.Invoke();
         }
 
         public List<StorageItem> GetStorageItems()

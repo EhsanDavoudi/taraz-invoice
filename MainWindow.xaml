@@ -573,6 +573,26 @@
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
 
+                                    <!-- مبلغ بعد ارزش افزوده (ریال) -->
+                                    <DataGridTemplateColumn Width="1.35*" MinWidth="130">
+                                        <DataGridTemplateColumn.HeaderStyle>
+                                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                            </Style>
+                                        </DataGridTemplateColumn.HeaderStyle>
+                                        <DataGridTemplateColumn.Header>
+                                            <TextBlock Text="مبلغ بعد ارزش افزوده (ریال)" FontWeight="Bold" FontSize="12"/>
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding GrandTotalWithVat, StringFormat={}{0:N0}}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource PrimaryBrush}"/>
+                                                    <TextBlock Text="ریال" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="4,1,0,0"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
                                     <!-- ستون سود پیش‌فاکتور (سود ما) -->
                                     <DataGridTemplateColumn Width="1.2*" MinWidth="110">
                                         <DataGridTemplateColumn.HeaderStyle>
@@ -751,8 +771,8 @@
                                 <!-- دکمه‌های اصلی عملیات فاکتور -->
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                     <!-- دکمه ذخیره پیش‌فاکتور -->
-                                    <ui:Button Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" 
-                                               Content="ذخیره پیش‌فاکتور" Padding="18,8" FontSize="13" FontWeight="Bold" Margin="0,0,8,0" Click="BtnSaveInvoice_Click"/>
+                                    <ui:Button x:Name="BtnTopSaveInvoice" Appearance="Primary" Icon="{ui:SymbolIcon Symbol=Save24}" 
+                                               Content="ذخیره پیش‌فاکتور (Ctrl+S)" Padding="18,8" FontSize="13" FontWeight="Bold" Margin="0,0,8,0" Click="BtnSaveInvoice_Click"/>
 
                                     <!-- دکمه تأیید پیش‌فاکتور و چاپ مستقیم -->
                                     <ui:Button Appearance="Success" Padding="14,8" FontSize="12" FontWeight="Bold" Margin="0,0,8,0" Click="BtnApproveAndPrint_Click">
@@ -779,11 +799,12 @@
                                                Padding="12,8" FontSize="12" Click="BtnCancelEditor_Click"/>
                                 </StackPanel>
 
-                                <!-- وضعیت ذخیره خودکار -->
-                                <Border Grid.Column="2" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="CloudCheckmark24" Foreground="{StaticResource SuccessBrush}" FontSize="16" Margin="0,0,6,0"/>
-                                        <TextBlock x:Name="TxtTopAutoSaveStatus" Text="ذخیره خودکار: فعال" Foreground="{StaticResource SuccessBrush}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <!-- وضعیت ذخیره و میانبر -->
+                                <Border x:Name="BrdTopSaveStatus" Grid.Column="2" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Padding="12,6" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ProgressBar x:Name="PrgSaveLoading" IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0" Visibility="Collapsed"/>
+                                        <ui:SymbolIcon x:Name="IcoTopSaveStatus" Symbol="CheckmarkCircle24" Foreground="{StaticResource SuccessBrush}" FontSize="16" Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="TxtTopSaveStatus" Text="آماده (Ctrl + S)" Foreground="{StaticResource SuccessBrush}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
@@ -913,23 +934,11 @@
                                 <Border Background="{StaticResource SurfaceCardBrush}" BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,16">
                                     <StackPanel>
                                         <Grid Margin="0,0,0,12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
+                                            <StackPanel>
                                                 <TextBlock Text="اقلام و محصولات پیش‌فاکتور" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                                                 <TextBlock Text="محاسبه همزمان قیمت خام، تخفیف، تقسیم بر ۱.۱، درصد و مبلغ سود، قیمت نهایی و سود ناخالص هر سطر." 
                                                            FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0"/>
                                             </StackPanel>
-
-                                            <!-- دکمه افزودن محصول جدید -->
-                                            <ui:Button Grid.Column="1" Appearance="Secondary" Padding="14,6" Click="BtnAddItem_Click">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <ui:SymbolIcon Symbol="Add24" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,6,0"/>
-                                                    <TextBlock Text="افزودن سطر خالی" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ui:Button>
                                         </Grid>
 
                                         <!-- نوار جستجو و انتخاب سریع کالا از انبار با درصد تخفیف و سود -->
@@ -1475,7 +1484,7 @@
                                             <StackPanel Grid.Column="1" Margin="3,0,6,0">
                                                 <TextBlock Text="زمان تحویل:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,3"/>
                                                 <ui:TextBox x:Name="TxtEditorDeliveryDays" Text="موجود" Margin="0,0,0,4"/>
-                                                <CheckBox x:Name="ChkHighlightDeliveryDays" IsChecked="True" Content="هایلایت زرد زمان تحویل" FontSize="10.5" Foreground="{StaticResource TextSecondaryBrush}" Cursor="Hand"/>
+                                                <CheckBox x:Name="ChkHighlightDeliveryDays" IsChecked="False" Content="هایلایت زرد زمان تحویل" FontSize="10.5" Foreground="{StaticResource TextSecondaryBrush}" Cursor="Hand"/>
                                             </StackPanel>
 
                                             <!-- ۳. محل تحویل -->
@@ -1504,7 +1513,7 @@
                                                     <TextBlock Text="متن اعتبار پیش‌فاکتور:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                                     <ui:TextBox x:Name="TxtEditorValidityText" Text="اعتبار این پیش فاکتورتا پایان روز می باشد."/>
                                                 </StackPanel>
-                                                <CheckBox x:Name="ChkHighlightValidity" Grid.Column="1" VerticalAlignment="Center" IsChecked="True" Content="هایلایت زرد اعتبار (مشابه نمونه)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Cursor="Hand"/>
+                                                <CheckBox x:Name="ChkHighlightValidity" Grid.Column="1" VerticalAlignment="Center" IsChecked="False" Content="هایلایت زرد اعتبار (مشابه نمونه)" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Cursor="Hand"/>
                                             </Grid>
                                         </Border>
 
@@ -1531,7 +1540,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="شرایط و توضیحات تکمیلی پیش‌فاکتور:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
-                                            <CheckBox x:Name="ChkHighlightNotes" Grid.Column="1" IsChecked="True" Content="هایلایت زرد توضیحات در فاکتور رسمی" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Cursor="Hand"/>
+                                            <CheckBox x:Name="ChkHighlightNotes" Grid.Column="1" IsChecked="False" Content="هایلایت زرد توضیحات در فاکتور رسمی" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}" Cursor="Hand"/>
                                         </Grid>
                                         <ui:TextBox x:Name="TxtEditorNotes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="65" Height="75" Margin="0,4,0,0"/>
                                     </StackPanel>
