@@ -118,7 +118,7 @@ namespace TarazInvoice.Converters
         {
             if (value is decimal d)
             {
-                return d.ToString("G29", CultureInfo.InvariantCulture);
+                return d.ToString(CultureInfo.InvariantCulture);
             }
             return "";
         }
@@ -134,6 +134,14 @@ namespace TarazInvoice.Converters
             if (string.IsNullOrWhiteSpace(s))
             {
                 return null;
+            }
+
+            s = s.Replace('/', '.').Replace('٫', '.');
+
+            // اگر کاربر در حال تایپ ممیز در انتهای عدد است (مثلاً "6.")، مانع پاک شدن ممیز توسط بایندینگ شویم
+            if (s.EndsWith(".") || s == "-")
+            {
+                return Binding.DoNothing;
             }
 
             if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal result))

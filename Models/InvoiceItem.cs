@@ -307,7 +307,10 @@ namespace TarazInvoice.Models
         }
 
         /// <summary>
-        /// گرد کردن به بالا (Ceiling): اگر ۴ رقمی باشد با تقریب ۱۰۰ (۲ رقم) و اگر بیشتر از ۴ رقم باشد با تقریب ۱۰۰۰ (۳ رقم)
+        /// گرد کردن به بالا (Ceiling):
+        /// - مبالغ ۱,۰۰۰ تا ۹,۹۹۹ ریال (۴ رقم ریال): گرد به بالا با تقریب ۱۰۰ ریال (۲ رقم)
+        /// - مبالغ ۱۰,۰۰۰ تا ۹۹,۹۹۹ ریال (۴ رقم تومان): گرد به بالا با تقریب ۱,۰۰۰ ریال (۳ رقم ریال / ۲ رقم تومان)
+        /// - مبالغ ۱۰۰,۰۰۰ ریال به بالا (بیش از ۴ رقم تومان): گرد به بالا با تقریب ۱۰,۰۰۰ ریال (مانند ۳,۲۲۸,۰۰۰ که می‌شود ۳,۲۳۰,۰۰۰)
         /// </summary>
         public static decimal RoundUpPrice(decimal value)
         {
@@ -318,9 +321,13 @@ namespace TarazInvoice.Models
             {
                 return Math.Ceiling(value / 100m) * 100m;
             }
-            else if (intPart >= 10000m)
+            else if (intPart >= 10000m && intPart <= 99999m)
             {
                 return Math.Ceiling(value / 1000m) * 1000m;
+            }
+            else if (intPart >= 100000m)
+            {
+                return Math.Ceiling(value / 10000m) * 10000m;
             }
             else
             {
@@ -425,12 +432,6 @@ namespace TarazInvoice.Models
                 _profitAmount = Math.Round(baseCost * (_profitPercent.Value / 100m), 0);
                 _finalUnitPrice = RoundUpPrice(baseCost + _profitAmount);
                 _profitAmount = _finalUnitPrice - baseCost;
-            }
-            else if (_profitAmount > 0)
-            {
-                _finalUnitPrice = RoundUpPrice(baseCost + _profitAmount);
-                _profitAmount = _finalUnitPrice - baseCost;
-                _profitPercent = (baseCost > 0) ? Math.Round((_profitAmount / baseCost) * 100m, 2) : 0;
             }
             else
             {

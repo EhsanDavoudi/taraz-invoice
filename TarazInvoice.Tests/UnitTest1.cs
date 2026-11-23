@@ -5,6 +5,7 @@ using ClosedXML.Excel;
 using Xunit;
 using TarazInvoice.Models;
 using TarazInvoice.Services;
+using TarazInvoice.Converters;
 
 namespace TarazInvoice.Tests
 {
@@ -909,17 +910,17 @@ namespace TarazInvoice.Tests
                 Assert.Equal(58300000, ws.Cell(10, 5).GetDouble());
                 Assert.Equal(116600000, ws.Cell(10, 6).GetDouble());
 
-                // اقلام آخر
+                // اقلام آخر (با سقف گرد کردن 3062000 به 3070000 -> 20 * 3070000 = 61400000)
                 Assert.Equal("هالوژن سولاریس ۱۲ وات دایره ای سفید پارس شعاع توس", ws.Cell(15, 2).GetString());
-                Assert.Equal(61240000, ws.Cell(15, 6).GetDouble());
+                Assert.Equal(61400000, ws.Cell(15, 6).GetDouble());
 
                 // ۴. جمع‌های مالی
-                // سطر ۱۷: جمع کل = ۲۲۸,۰۰۰,۰۰۰
-                Assert.Equal(228000000, ws.Cell(17, 6).GetDouble());
-                // سطر ۱۸: ارزش افزوده = ۲۲,۸۰۰,۰۰۰
-                Assert.Equal(22800000, ws.Cell(18, 6).GetDouble());
-                // سطر ۱۹: جمع کل با ارزش افزوده = ۲۵۰,۸۰۰,۰۰۰
-                Assert.Equal(250800000, ws.Cell(19, 6).GetDouble());
+                // سطر ۱۷: جمع کل = ۲۲۸,۴۰۰,۰۰۰
+                Assert.Equal(228400000, ws.Cell(17, 6).GetDouble());
+                // سطر ۱۸: ارزش افزوده = ۲۲,۸۴۰,۰۰۰
+                Assert.Equal(22840000, ws.Cell(18, 6).GetDouble());
+                // سطر ۱۹: جمع کل با ارزش افزوده = ۲۵۱,۲۴۰,۰۰۰
+                Assert.Equal(251240000, ws.Cell(19, 6).GetDouble());
 
                 // ۵. توضیحات و شرایط
                 // سطر ۲۱: عنوان توضیحات :
@@ -2019,20 +2020,59 @@ namespace TarazInvoice.Tests
         [Fact]
         public void Test_InvoiceItem_CeilingRules_4DigitsAndMore()
         {
-            // ۴ رقمی: گرد به بالا با تقریب ۱۰۰ (۲ صفر)
+            // ۴ رقمی ریال: گرد به بالا با تقریب ۱۰۰ (۲ صفر)
             Assert.Equal(1300m, InvoiceItem.RoundUpPrice(1234m));
             Assert.Equal(4100m, InvoiceItem.RoundUpPrice(4010m));
             Assert.Equal(4000m, InvoiceItem.RoundUpPrice(4000m));
             Assert.Equal(9900m, InvoiceItem.RoundUpPrice(9801m));
             Assert.Equal(10000m, InvoiceItem.RoundUpPrice(9950m));
 
-            // بیشتر از ۴ رقم: گرد به بالا با تقریب ۱۰۰۰ (۳ صفر)
+            // ۵ رقمی ریال (۴ رقم تومان): گرد به بالا با تقریب ۱۰۰۰ (۳ صفر)
             Assert.Equal(13000m, InvoiceItem.RoundUpPrice(12345m));
             Assert.Equal(15000m, InvoiceItem.RoundUpPrice(14200m));
             Assert.Equal(14000m, InvoiceItem.RoundUpPrice(14000m));
-            Assert.Equal(1235000m, InvoiceItem.RoundUpPrice(1234567m));
-            Assert.Equal(2501000m, InvoiceItem.RoundUpPrice(2500100m));
+
+            // ۶ رقمی به بالا در ریال (بیش از ۴ رقم تومان): گرد به بالا با تقریب ۱۰۰۰۰ (مانند ۳,۲۲۸,۰۰۰ که می‌شود ۳,۲۳۰,۰۰۰)
+            Assert.Equal(3230000m, InvoiceItem.RoundUpPrice(3228000m));
+            Assert.Equal(3230000m, InvoiceItem.RoundUpPrice(3221000m));
+            Assert.Equal(3230000m, InvoiceItem.RoundUpPrice(3230000m));
+            Assert.Equal(1240000m, InvoiceItem.RoundUpPrice(1234567m));
+            Assert.Equal(2510000m, InvoiceItem.RoundUpPrice(2500100m));
             Assert.Equal(2500000m, InvoiceItem.RoundUpPrice(2500000m));
+        }
+
+        [Fact]
+        public void Test_NullablePercentConverter_TrailingDotAndPersianSeparators()
+        {
+            var converter = new NullablePercentConverter();
+
+            // تایپ نقطه در انتها نباید پاک شود
+            var doNothingDot = converter.ConvertBack("6.", typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(System.Windows.Data.Binding.DoNothing, doNothingDot);
+
+            // تایپ اسلش فارسی در انتها نباید پاک شود
+            var doNothingSlash = converter.ConvertBack("6/", typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(System.Windows.Data.Binding.DoNothing, doNothingSlash);
+
+            // تایپ ممیز فارسی در انتها
+            var doNothingFarsi = converter.ConvertBack("6٫", typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(System.Windows.Data.Binding.DoNothing, doNothingFarsi);
+
+            // تبدیل ممیز اعشاری 6.8
+            var val1 = converter.ConvertBack("6.8", typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(6.8m, (decimal?)val1);
+
+            // تبدیل با ممیز اسلش 6/8
+            var val2 = converter.ConvertBack("6/8", typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(6.8m, (decimal?)val2);
+
+            // تبدیل با کاراکترهای فارسی ۶.۸
+            var val3 = converter.ConvertBack("۶.۸", typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal(6.8m, (decimal?)val3);
+
+            // Convert خروجی اعشاری را بدون بریدن حفظ کند
+            var str = converter.Convert(6.8m, typeof(string), null, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Equal("6.8", str);
         }
 
         [Fact]

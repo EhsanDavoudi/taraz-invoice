@@ -1435,7 +1435,7 @@ namespace TarazInvoice
             decimal grandTotal = InvoiceItem.RoundUpPrice(_editingItems.Sum(i => i.TotalPrice));
 
             decimal vatPercent = 10m;
-            if (TxtEditorVatPercent != null && decimal.TryParse(TxtEditorVatPercent.Text?.Trim(), out decimal parsedVat) && parsedVat >= 0)
+            if (TxtEditorVatPercent != null && TryParsePercent(TxtEditorVatPercent.Text, out decimal parsedVat))
             {
                 vatPercent = parsedVat;
             }
@@ -1448,8 +1448,11 @@ namespace TarazInvoice
             TxtSummaryRawTotal.Text = $"{grandTotal:N0} ریال";
             TxtSummaryDiscountTotal.Text = $"{discountTotal:N0} ریال";
             TxtSummaryProfitTotal.Text = $"{profitTotal:N0} ریال";
-            decimal profitPct = grandTotal > 0 ? Math.Round((profitTotal / grandTotal) * 100m, 1) : 0;
-            TxtSummaryProfitPercent.Text = $"{profitPct}% سود";
+            decimal totalCost = _editingItems.Sum(i => i.Quantity * i.BaseCost);
+            decimal profitPct = (totalCost > 0)
+                ? Math.Round((profitTotal / totalCost) * 100m, 2)
+                : (grandTotal > 0 ? Math.Round((profitTotal / grandTotal) * 100m, 2) : 0m);
+            TxtSummaryProfitPercent.Text = $"{profitPct:G29}% سود";
 
             if (TxtSummaryGrandTotal != null)
             {
@@ -1688,7 +1691,7 @@ namespace TarazInvoice
             _currentEditingInvoice.SignatoryName = TxtEditorSignatoryName.Text?.Trim() ?? "محمد احمدی پور هدش";
             _currentEditingInvoice.ExpertRoleLabel = TxtEditorExpertRole.Text?.Trim() ?? "کارشناسی خرید:";
 
-            if (decimal.TryParse(TxtEditorVatPercent.Text?.Trim(), out decimal vat) && vat >= 0)
+            if (TryParsePercent(TxtEditorVatPercent?.Text, out decimal vat))
             {
                 _currentEditingInvoice.VatPercent = vat;
             }
@@ -1736,10 +1739,64 @@ namespace TarazInvoice
             return true;
         }
 
+        private static bool TryParsePercent(string? text, out decimal value)
+        {
+            value = 0m;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            string s = text.Replace("۰", "0").Replace("۱", "1").Replace("۲", "2").Replace("۳", "3").Replace("۴", "4")
+                           .Replace("۵", "5").Replace("۶", "6").Replace("۷", "7").Replace("۸", "8").Replace("۹", "9")
+                           .Replace("%", "").Replace("٪", "").Replace(",", "").Replace("،", "").Replace(" ", "").Trim();
+
+            s = s.Replace('/', '.').Replace('٫', '.');
+
+            return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out value) && value >= 0;
+        }
+
+        private void CommitGridEdits()
+        {
+            try
+            {
+                DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Cell, true);
+                DgrInvoiceItems?.CommitEdit(DataGridEditingUnit.Row, true);
+            }
+            catch { }
+        }
+
+        private List<InvoiceItem> GetBulkTargets()
+        {
+            if (CmbBulkTarget?.SelectedIndex == 1)
+            {
+                var selected = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
+                if (selected.Count > 0) return selected;
+            }
+            return _editingItems.ToList();
+        }
+
+        private void TxtPercent_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            if (e.Text == "/" || e.Text == "٫" || e.Text == "،")
+            {
+                e.Handled = true;
+                if (sender is System.Windows.Controls.TextBox tb)
+                {
+                    int caret = tb.SelectionStart;
+                    tb.Text = tb.Text.Remove(caret, tb.SelectionLength).Insert(caret, ".");
+                    tb.SelectionStart = caret + 1;
+                }
+                else if (sender is Wpf.Ui.Controls.TextBox uiTb)
+                {
+                    int caret = uiTb.SelectionStart;
+                    uiTb.Text = uiTb.Text.Remove(caret, uiTb.SelectionLength).Insert(caret, ".");
+                    uiTb.SelectionStart = caret + 1;
+                }
+            }
+        }
+
         private void BtnApplyBulkDiscount_Click(object sender, RoutedEventArgs e)
         {
-            string txt = TxtBulkDiscountPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
-            if (decimal.TryParse(txt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount) && discount >= 0)
+            CommitGridEdits();
+            if (TryParsePercent(TxtBulkDiscountPercent?.Text, out decimal discount))
             {
                 if (_editingItems.Count == 0)
                 {
@@ -1747,17 +1804,16 @@ namespace TarazInvoice
                     return;
                 }
 
-                var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
-                if (targets.Count == 0) targets = _editingItems.ToList();
-
+                var targets = GetBulkTargets();
                 foreach (var item in targets)
                 {
                     item.DiscountPercent = discount;
+                    item.UpdateFromPercent();
                 }
-                DgrInvoiceItems.Items.Refresh();
+
                 RecalculateEditorSummaries();
                 SetDirty(true);
-                SetStatus($"تخفیف {discount}٪ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
+                SetStatus($"تخفیف {discount:G29}٪ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
             }
             else
             {
@@ -1767,8 +1823,8 @@ namespace TarazInvoice
 
         private void BtnApplyBulkProfit_Click(object sender, RoutedEventArgs e)
         {
-            string txt = TxtBulkProfitPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
-            if (decimal.TryParse(txt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profit) && profit >= 0)
+            CommitGridEdits();
+            if (TryParsePercent(TxtBulkProfitPercent?.Text, out decimal profit))
             {
                 if (_editingItems.Count == 0)
                 {
@@ -1776,17 +1832,16 @@ namespace TarazInvoice
                     return;
                 }
 
-                var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
-                if (targets.Count == 0) targets = _editingItems.ToList();
-
+                var targets = GetBulkTargets();
                 foreach (var item in targets)
                 {
                     item.ProfitPercent = profit;
+                    item.UpdateFromProfitPercent();
                 }
-                DgrInvoiceItems.Items.Refresh();
+
                 RecalculateEditorSummaries();
                 SetDirty(true);
-                SetStatus($"سود {profit}٪ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
+                SetStatus($"سود {profit:G29}٪ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
             }
             else
             {
@@ -1796,34 +1851,30 @@ namespace TarazInvoice
 
         private void BtnApplyBulkBoth_Click(object sender, RoutedEventArgs e)
         {
+            CommitGridEdits();
             if (_editingItems.Count == 0)
             {
                 MessageBox.Show("هیچ سطری در پیش‌فاکتور وجود ندارد.", "توجه", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            string dTxt = TxtBulkDiscountPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
-            string pTxt = TxtBulkProfitPercent?.Text?.Replace("٪", "").Replace("%", "").Trim() ?? "";
-
-            bool hasDiscount = decimal.TryParse(dTxt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal discount) && discount >= 0;
-            bool hasProfit = decimal.TryParse(pTxt, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal profit) && profit >= 0;
+            bool hasDiscount = TryParsePercent(TxtBulkDiscountPercent?.Text, out decimal discount);
+            bool hasProfit = TryParsePercent(TxtBulkProfitPercent?.Text, out decimal profit);
 
             if (!hasDiscount && !hasProfit)
             {
-                MessageBox.Show("لطفاً حداقل درصد تخفیف یا درصد سود را وارد نمایید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("لطفاً حداقل درصد تخفیف یا درصد سود معتبر را وارد نمایید.", "خطا", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
-            if (targets.Count == 0) targets = _editingItems.ToList();
-
+            var targets = GetBulkTargets();
             foreach (var item in targets)
             {
                 if (hasDiscount) item.DiscountPercent = discount;
                 if (hasProfit) item.ProfitPercent = profit;
+                item.RecalculateTotals();
             }
 
-            DgrInvoiceItems.Items.Refresh();
             RecalculateEditorSummaries();
             SetDirty(true);
             SetStatus($"تنظیم یکجای تخفیف و سود روی {targets.Count} سطر پیش‌فاکتور اعمال گردید.");
@@ -1831,23 +1882,26 @@ namespace TarazInvoice
 
         private void BtnApplyBulk1Point1_Click(object sender, RoutedEventArgs e)
         {
+            CommitGridEdits();
             if (_editingItems.Count == 0)
             {
                 MessageBox.Show("هیچ سطری در پیش‌فاکتور وجود ندارد.", "توجه", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var targets = DgrInvoiceItems.SelectedItems.OfType<InvoiceItem>().ToList();
-            if (targets.Count == 0) targets = _editingItems.ToList();
+            var targets = GetBulkTargets();
+            bool targetValue = targets.Any(i => !i.IsDividedBy1Point1);
 
             foreach (var item in targets)
             {
-                item.IsDividedBy1Point1 = true;
+                item.IsDividedBy1Point1 = targetValue;
+                item.RecalculateTotals();
             }
-            DgrInvoiceItems.Items.Refresh();
+
             RecalculateEditorSummaries();
             SetDirty(true);
-            SetStatus($"فرمول تقسیم بر ۱.۱ به {targets.Count} سطر پیش‌فاکتور اعمال شد.");
+            string actionDesc = targetValue ? "فعال‌سازی" : "غیرفعال‌سازی";
+            SetStatus($"{actionDesc} فرمول تقسیم بر ۱.۱ روی {targets.Count} سطر پیش‌فاکتور اعمال شد.");
         }
 
         #region پیشنهادات هوشمند جستجوی کالا در جدول اقلام

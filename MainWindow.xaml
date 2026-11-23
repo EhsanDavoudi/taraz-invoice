@@ -1041,25 +1041,31 @@
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
 
-                                                <TextBlock Grid.Column="0" Text="عملیات گروهی اقلام:" FontWeight="Bold" FontSize="11.5" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <TextBlock Text="عملیات گروهی اقلام:" FontWeight="Bold" FontSize="11.5" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <ComboBox x:Name="CmbBulkTarget" Width="125" Height="32" SelectedIndex="0" FontSize="10.5" ToolTip="تعیین دامنه اعمال عملیات گروهی">
+                                                        <ComboBoxItem Content="همه اقلام فاکتور"/>
+                                                        <ComboBoxItem Content="فقط سطرهای انتخابی"/>
+                                                    </ComboBox>
+                                                </StackPanel>
 
                                                 <!-- تخفیف گروهی -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                                                     <TextBlock Text="تخفیف %:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                    <ui:TextBox x:Name="TxtBulkDiscountPercent" PlaceholderText="%" Width="52" Height="32" TextAlignment="Center" Margin="0,0,4,0"/>
-                                                    <ui:Button Appearance="Secondary" Content="اعمال تخفیف" Padding="6,3" Height="32" FontSize="10.5" Click="BtnApplyBulkDiscount_Click" ToolTip="اعمال درصد تخفیف به سطرهای انتخابی (یا تمام سطرها در صورت عدم انتخاب)"/>
+                                                    <ui:TextBox x:Name="TxtBulkDiscountPercent" PlaceholderText="%" Width="52" Height="32" TextAlignment="Center" Margin="0,0,4,0" PreviewTextInput="TxtPercent_PreviewTextInput"/>
+                                                    <ui:Button Appearance="Secondary" Content="اعمال تخفیف" Padding="6,3" Height="32" FontSize="10.5" Click="BtnApplyBulkDiscount_Click" ToolTip="اعمال درصد تخفیف به اقلام فاکتور"/>
                                                 </StackPanel>
 
                                                 <!-- سود گروهی -->
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                                                     <TextBlock Text="سود %:" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                    <ui:TextBox x:Name="TxtBulkProfitPercent" PlaceholderText="%" Width="52" Height="32" TextAlignment="Center" Margin="0,0,4,0"/>
-                                                    <ui:Button Appearance="Secondary" Content="اعمال سود" Padding="6,3" Height="32" FontSize="10.5" Click="BtnApplyBulkProfit_Click" ToolTip="اعمال درصد سود به سطرهای انتخابی (یا تمام سطرها در صورت عدم انتخاب)"/>
+                                                    <ui:TextBox x:Name="TxtBulkProfitPercent" PlaceholderText="%" Width="52" Height="32" TextAlignment="Center" Margin="0,0,4,0" PreviewTextInput="TxtPercent_PreviewTextInput"/>
+                                                    <ui:Button Appearance="Secondary" Content="اعمال سود" Padding="6,3" Height="32" FontSize="10.5" Click="BtnApplyBulkProfit_Click" ToolTip="اعمال درصد سود به اقلام فاکتور"/>
                                                 </StackPanel>
 
                                                 <!-- اعمال همزمان تخفیف و سود -->
                                                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                                                    <ui:Button Appearance="Primary" Content="اعمال تخفیف و سود (یکجا)" Padding="10,3" Height="32" FontSize="11" FontWeight="Bold" Click="BtnApplyBulkBoth_Click" ToolTip="تنظیم همزمان درصد تخفیف و سود واردشده روی سطرهای انتخابی با یک کلیک"/>
+                                                    <ui:Button Appearance="Primary" Content="اعمال تخفیف و سود (یکجا)" Padding="10,3" Height="32" FontSize="11" FontWeight="Bold" Click="BtnApplyBulkBoth_Click" ToolTip="تنظیم همزمان درصد تخفیف و سود واردشده روی اقلام فاکتور با یک کلیک"/>
                                                 </StackPanel>
 
                                                 <!-- فرمول ۱.۱ گروهی -->
@@ -1248,7 +1254,7 @@
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <ui:TextBox Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullablePercentConverter}}" PlaceholderText="الزامی" TextAlignment="Center" Height="32" Padding="2" VerticalAlignment="Center"/>
+                                                            <ui:TextBox Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullablePercentConverter}}" PlaceholderText="الزامی" TextAlignment="Center" Height="32" Padding="2" VerticalAlignment="Center" PreviewTextInput="TxtPercent_PreviewTextInput"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
@@ -1307,7 +1313,7 @@
                                                     </DataGridTemplateColumn.CellTemplate>
                                                     <DataGridTemplateColumn.CellEditingTemplate>
                                                         <DataTemplate>
-                                                            <ui:TextBox Text="{Binding ProfitPercent, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullablePercentConverter}}" PlaceholderText="الزامی" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center"/>
+                                                            <ui:TextBox Text="{Binding ProfitPercent, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource NullablePercentConverter}}" PlaceholderText="الزامی" TextAlignment="Center" Height="38" Padding="4" VerticalAlignment="Center" PreviewTextInput="TxtPercent_PreviewTextInput"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellEditingTemplate>
                                                 </DataGridTemplateColumn>
@@ -1497,7 +1503,7 @@
                                             <!-- ۴. درصد ارزش افزوده -->
                                             <StackPanel Grid.Column="3" Margin="3,0,0,0">
                                                 <TextBlock Text="درصد ارزش افزوده (%):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,3"/>
-                                                <ui:TextBox x:Name="TxtEditorVatPercent" Text="10" TextAlignment="Center" Margin="0,0,0,4" TextChanged="TxtEditorVatPercent_TextChanged"/>
+                                                <ui:TextBox x:Name="TxtEditorVatPercent" Text="10" TextAlignment="Center" Margin="0,0,0,4" TextChanged="TxtEditorVatPercent_TextChanged" PreviewTextInput="TxtPercent_PreviewTextInput"/>
                                                 <CheckBox x:Name="ChkHighlightVat" Content="هایلایت زرد ارزش افزوده" FontSize="10.5" Foreground="{StaticResource TextSecondaryBrush}" Cursor="Hand"/>
                                             </StackPanel>
                                         </Grid>
