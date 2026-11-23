@@ -530,18 +530,9 @@ namespace TarazInvoice.Services
                 }
             }
 
-            if (model.Settings.BankAccounts == null || model.Settings.BankAccounts.Count == 0)
+            if (model.Settings.BankAccounts == null)
             {
-                model.Settings.BankAccounts = new List<BankAccountInfo>
-                {
-                    new BankAccountInfo
-                    {
-                        BankName = "بانک ملی ایران",
-                        ShebaNumber = "IR95017000000118033698006",
-                        CardNumber = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶",
-                        OwnerName = "شرکت آریان نیرو گستر اترک"
-                    }
-                };
+                model.Settings.BankAccounts = new List<BankAccountInfo>();
             }
         }
 
@@ -886,18 +877,10 @@ namespace TarazInvoice.Services
             }
             merged.Settings.NextInvoiceNumber = maxNextNum;
 
-            // ادغام حساب‌های بانکی
-            var banks = new List<BankAccountInfo>(primary.Settings?.BankAccounts ?? new List<BankAccountInfo>());
-            foreach (var b in local.Settings?.BankAccounts ?? new List<BankAccountInfo>())
-            {
-                if (!banks.Any(x => (!string.IsNullOrEmpty(x.ShebaNumber) && x.ShebaNumber == b.ShebaNumber) ||
-                                    (!string.IsNullOrEmpty(x.CardNumber) && x.CardNumber == b.CardNumber) ||
-                                    (!string.IsNullOrEmpty(x.AccountNumber) && x.AccountNumber == b.AccountNumber)))
-                {
-                    banks.Add(b);
-                }
-            }
-            merged.Settings.BankAccounts = banks;
+            // ادغام حساب‌های بانکی: از نسخه به‌روزتر تنظیمات استفاده می‌شود تا تغییرات و حذف‌های کاربر حفظ گردند
+            merged.Settings.BankAccounts = mergedSettings.BankAccounts != null
+                ? new List<BankAccountInfo>(mergedSettings.BankAccounts)
+                : new List<BankAccountInfo>();
 
             return merged;
         }

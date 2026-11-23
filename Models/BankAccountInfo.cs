@@ -6,7 +6,7 @@ namespace TarazInvoice.Models
     public class BankAccountInfo
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public string BankName { get; set; } = "بانک ملی ایران";       // نام بانک
+        public string BankName { get; set; } = "";       // نام بانک
         public string AccountNumber { get; set; } = "";               // شماره حساب
         public string ShebaNumber { get; set; } = "";                 // شماره شبا (با IR یا بدون IR)
         public string CardNumber { get; set; } = "";                  // شماره کارت

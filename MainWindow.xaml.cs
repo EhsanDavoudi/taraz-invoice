@@ -3230,7 +3230,22 @@ namespace TarazInvoice
             if (TxtNewBankCard != null) TxtNewBankCard.Text = "";
             if (TxtNewBankOwner != null) TxtNewBankOwner.Text = "";
 
-            SetStatus("حساب بانکی به لیست افزوده شد.");
+            var settings = _storage.GetSettings();
+            settings.BankAccounts = _settingsBankAccounts.ToList();
+            if (_settingsBankAccounts.Count > 0)
+            {
+                var firstAcc = _settingsBankAccounts[0];
+                settings.BankAccountNumber = $"{firstAcc.ShebaNumber} {firstAcc.BankName}".Trim();
+                settings.BankCardNumber = $"{firstAcc.CardNumber} {firstAcc.OwnerName}".Trim();
+            }
+            else
+            {
+                settings.BankAccountNumber = "";
+                settings.BankCardNumber = "";
+            }
+            _storage.SaveSettings(settings);
+
+            SetStatus("حساب بانکی به لیست افزوده و در پایگاه‌داده ذخیره شد.");
         }
 
         private void BtnDeleteBankAccount_Click(object sender, RoutedEventArgs e)
@@ -3238,7 +3253,23 @@ namespace TarazInvoice
             if (sender is FrameworkElement btn && btn.DataContext is BankAccountInfo acc)
             {
                 _settingsBankAccounts.Remove(acc);
-                SetStatus("حساب بانکی از لیست حذف شد.");
+
+                var settings = _storage.GetSettings();
+                settings.BankAccounts = _settingsBankAccounts.ToList();
+                if (_settingsBankAccounts.Count > 0)
+                {
+                    var firstAcc = _settingsBankAccounts[0];
+                    settings.BankAccountNumber = $"{firstAcc.ShebaNumber} {firstAcc.BankName}".Trim();
+                    settings.BankCardNumber = $"{firstAcc.CardNumber} {firstAcc.OwnerName}".Trim();
+                }
+                else
+                {
+                    settings.BankAccountNumber = "";
+                    settings.BankCardNumber = "";
+                }
+                _storage.SaveSettings(settings);
+
+                SetStatus("حساب بانکی از لیست حذف و در پایگاه‌داده ذخیره شد.");
             }
         }
         private void BtnSaveSellerSettings_Click(object sender, RoutedEventArgs e)

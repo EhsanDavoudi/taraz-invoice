@@ -836,6 +836,16 @@ namespace TarazInvoice.Tests
             settings.SellerAddress = "مشهد - خیابان سنایی - بین سنایی ۱۲ و ۱۴ - روبروی سنایی ۱۵ - پلاک ۱۱۵";
             settings.SellerPhone = "۵-۰۵۱۳۷۱۳۲۰۸۴";
             settings.CurrencyUnit = "ریال";
+            settings.BankAccounts = new List<BankAccountInfo>
+            {
+                new BankAccountInfo
+                {
+                    BankName = "بانک ملی ایران",
+                    ShebaNumber = "IR95017000000118033698006",
+                    CardNumber = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶",
+                    OwnerName = "شرکت آریان نیرو گستر اترک"
+                }
+            };
             storage.Save();
 
             var excel = new ExcelExportService(storage);
@@ -2108,6 +2118,48 @@ namespace TarazInvoice.Tests
         {
             var expert = new Expert();
             Assert.Equal("کارشناس خرید", expert.RoleTitle);
+        }
+
+        [Fact]
+        public void Test_AppSettings_NoDefaultBankAccounts_StoredInDb()
+        {
+            var settings = new AppSettings();
+            Assert.Empty(settings.BankAccounts);
+            Assert.Empty(settings.BankAccountNumber);
+            Assert.Empty(settings.BankCardNumber);
+
+            string tempDir = Path.Combine(Path.GetTempPath(), "TarazBankTest_" + Guid.NewGuid().ToString("N"));
+            string dbPath = Path.Combine(tempDir, "database.json");
+            try
+            {
+                var storage = new StorageService(dbPath);
+                // دیتابیس نباید حساب بانکی پیش‌فرضی به کاربر تحمیل کند
+                Assert.Empty(storage.GetSettings().BankAccounts);
+
+                // کاربر حساب خود را در تنظیمات ثبت می‌کند
+                var s = storage.GetSettings();
+                s.BankAccounts.Add(new BankAccountInfo
+                {
+                    BankName = "بانک سامان",
+                    ShebaNumber = "IR910560930281005263715001",
+                    CardNumber = "6219868801982988",
+                    OwnerName = "شرکت آریان نیرو گستر اترک"
+                });
+                storage.SaveSettings(s);
+
+                // بازخوانی از فایل
+                var reloadedStorage = new StorageService(dbPath);
+                var reloadedSettings = reloadedStorage.GetSettings();
+                Assert.Single(reloadedSettings.BankAccounts);
+                Assert.Equal("بانک سامان", reloadedSettings.BankAccounts[0].BankName);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, true); } catch { }
+                }
+            }
         }
 
         [Fact]

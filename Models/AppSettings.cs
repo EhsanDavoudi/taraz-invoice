@@ -37,21 +37,11 @@ namespace TarazInvoice.Models
         public string TableFontFamily { get; set; } = "Vazirmatn";
         public double TableFontSize { get; set; } = 11;
 
-        // اطلاعات مالی و بانکی پیش‌فاکتور (پشتیبانی از چندین حساب بانکی، شماره شبا و شماره کارت)
-        public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>
-        {
-            new BankAccountInfo
-            {
-                BankName = "بانک ملی ایران",
-                AccountNumber = "",
-                ShebaNumber = "IR95017000000118033698006",
-                CardNumber = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶",
-                OwnerName = "شرکت آریان نیرو گستر اترک"
-            }
-        };
+        // اطلاعات مالی و بانکی پیش‌فاکتور (پشتیبانی از چندین حساب بانکی، شماره شبا و شماره کارت ذخیره‌شده در دیتابیس توسط کاربر)
+        public List<BankAccountInfo> BankAccounts { get; set; } = new List<BankAccountInfo>();
 
-        public string BankAccountNumber { get; set; } = "IR95017000000118033698006 بانک ملی ایران";
-        public string BankCardNumber { get; set; } = "۶۰۳۷۹۹۸۰۰۴۱۰۴۱۶ شرکت آریان نیرو گستر اترک";
+        public string BankAccountNumber { get; set; } = "";
+        public string BankCardNumber { get; set; } = "";
         public string PaymentTerms { get; set; } = "نقد";
         public string DeliveryDays { get; set; } = "موجود";
         public string DeliveryLocation { get; set; } = "مشهد";
