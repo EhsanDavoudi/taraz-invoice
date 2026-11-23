@@ -1208,10 +1208,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- تعداد -->
-                                                <DataGridTemplateColumn Header="تعداد *" Width="52" MinWidth="46" MaxWidth="62">
+                                                <DataGridTemplateColumn Header="تعداد *" Width="44" MinWidth="38" MaxWidth="50">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="2" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding Quantity, Converter={StaticResource QuantityConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1229,10 +1229,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- واحد کالا (عدد، دستگاه، متر، ...) -->
-                                                <DataGridTemplateColumn Header="واحد" Width="52" MinWidth="46" MaxWidth="64">
+                                                <DataGridTemplateColumn Header="واحد" Width="44" MinWidth="38" MaxWidth="52">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="2" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding Unit}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1245,10 +1245,10 @@
                                                 </DataGridTemplateColumn>
                                                 
                                                 <!-- قیمت خام واحد -->
-                                                <DataGridTemplateColumn x:Name="ColRawPrice" Header="قیمت خام" Width="0.95*" MinWidth="76" MaxWidth="112">
+                                                <DataGridTemplateColumn x:Name="ColRawPrice" Header="قیمت خام" Width="0.9*" MinWidth="74" MaxWidth="105">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="4,2" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding RawPrice, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1261,10 +1261,10 @@
                                                 </DataGridTemplateColumn>
                                                 
                                                 <!-- درصد تخفیف فروش (الزامی حتی اگر صفر باشد) -->
-                                                <DataGridTemplateColumn x:Name="ColDiscountPercent" Header="تخفیف % *" Width="56" MinWidth="50" MaxWidth="68">
+                                                <DataGridTemplateColumn x:Name="ColDiscountPercent" Header="تخفیف %" Width="52" MinWidth="46" MaxWidth="60">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam" MinHeight="26">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="2" Margin="1" Cursor="IBeam" MinHeight="26">
                                                                 <TextBlock Text="{Binding DiscountPercent, Converter={StaticResource NullablePercentDisplayConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1277,10 +1277,10 @@
                                                 </DataGridTemplateColumn>
                                                 
                                                 <!-- مبلغ تخفیف واحد -->
-                                                <DataGridTemplateColumn x:Name="ColDiscountAmount" Header="مبلغ تخفیف" Width="0.9*" MinWidth="72" MaxWidth="105">
+                                                <DataGridTemplateColumn x:Name="ColDiscountAmount" Header="مبلغ تخفیف" Width="0.85*" MinWidth="70" MaxWidth="100">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="4,2" Margin="1" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam">
                                                                 <TextBlock Text="{Binding DiscountAmount, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1293,10 +1293,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- قیمت خرید پس از کسر تخفیف و/یا تقسیم بر ۱.۱ -->
-                                                <DataGridTemplateColumn x:Name="ColBaseCost" Header="قیمت خرید" Width="0.95*" MinWidth="76" MaxWidth="112">
+                                                <DataGridTemplateColumn x:Name="ColBaseCost" Header="قیمت خرید" Width="0.9*" MinWidth="74" MaxWidth="105">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="4,2" Margin="1" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam">
                                                                 <TextBlock Text="{Binding BaseCost, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5" FontWeight="SemiBold"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1309,10 +1309,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- تیک ویژه محاسبه تقسیم بر ۱.۱ با تک‌کلیک سریع -->
-                                                <DataGridTemplateColumn x:Name="Col1Point1" Width="44" MinWidth="40" MaxWidth="48" CanUserResize="False">
+                                                <DataGridTemplateColumn x:Name="Col1Point1" Width="50" MinWidth="46" MaxWidth="56" CanUserResize="False">
                                                     <DataGridTemplateColumn.HeaderTemplate>
                                                         <DataTemplate>
-                                                            <TextBlock Text="تقسیم ۱.۱" FontSize="10" FontWeight="SemiBold" TextAlignment="Center" HorizontalAlignment="Center" ToolTip="اعمال تقسیم بر ۱.۱ روی قیمت پس از تخفیف"/>
+                                                            <TextBlock Text="تقسیم ۱.۱" FontSize="11" FontWeight="Bold" TextAlignment="Center" HorizontalAlignment="Center" ToolTip="اعمال تقسیم بر ۱.۱ روی قیمت پس از تخفیف"/>
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.HeaderTemplate>
                                                     <DataGridTemplateColumn.CellTemplate>
@@ -1325,10 +1325,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- درصد سود (الزامی حتی اگر صفر باشد) -->
-                                                <DataGridTemplateColumn x:Name="ColProfitPercent" Header="سود % *" Width="56" MinWidth="50" MaxWidth="68">
+                                                <DataGridTemplateColumn x:Name="ColProfitPercent" Header="سود %" Width="48" MinWidth="44" MaxWidth="56">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="4,2" Margin="1" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="2" Margin="1" Cursor="IBeam">
                                                                 <TextBlock Text="{Binding ProfitPercent, Converter={StaticResource NullablePercentDisplayConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1341,10 +1341,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- مبلغ سود واحد -->
-                                                <DataGridTemplateColumn x:Name="ColProfitAmount" Header="سود واحد" Width="0.9*" MinWidth="72" MaxWidth="105">
+                                                <DataGridTemplateColumn x:Name="ColProfitAmount" Header="سود واحد" Width="0.85*" MinWidth="70" MaxWidth="100">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="4,2" Margin="1" Cursor="IBeam">
+                                                            <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam">
                                                                 <TextBlock Text="{Binding ProfitAmount, StringFormat={}{0:N0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11.5"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1357,7 +1357,7 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- سود کل سطر -->
-                                                <DataGridTemplateColumn x:Name="ColTotalProfit" Header="سود کل" Width="0.9*" MinWidth="72" MaxWidth="108">
+                                                <DataGridTemplateColumn x:Name="ColTotalProfit" Header="سود کل" Width="0.85*" MinWidth="70" MaxWidth="100">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
                                                             <TextBlock Text="{Binding TotalProfit, StringFormat={}{0:N0}}" 
@@ -1368,10 +1368,10 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- قیمت نهایی فروش (خروجی مشتری) -->
-                                                <DataGridTemplateColumn Header="قیمت فروش *" Width="1.0*" MinWidth="80" MaxWidth="118">
+                                                <DataGridTemplateColumn Header="قیمت فروش" Width="0.95*" MinWidth="76" MaxWidth="110">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
-                                                            <Border Background="#EFF6FF" BorderBrush="#93C5FD" BorderThickness="1" CornerRadius="5" Padding="4,2" Margin="1" Cursor="IBeam">
+                                                            <Border Background="#EFF6FF" BorderBrush="#93C5FD" BorderThickness="1" CornerRadius="5" Padding="3,2" Margin="1" Cursor="IBeam">
                                                                 <TextBlock Text="{Binding FinalUnitPrice, StringFormat={}{0:N0}}" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
                                                             </Border>
                                                         </DataTemplate>
@@ -1384,7 +1384,7 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- مبلغ کل سطر -->
-                                                <DataGridTemplateColumn Header="مبلغ کل" Width="1.0*" MinWidth="82" MaxWidth="120">
+                                                <DataGridTemplateColumn Header="مبلغ کل" Width="0.95*" MinWidth="76" MaxWidth="110">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
                                                             <TextBlock Text="{Binding TotalPrice, StringFormat={}{0:N0}}" 
@@ -1395,7 +1395,7 @@
                                                 </DataGridTemplateColumn>
 
                                                 <!-- عملیات سطر (منوی یکپارچه و کم‌جا) -->
-                                                <DataGridTemplateColumn CanUserSort="False" CanUserResize="False" Header="عملیات" Width="38" MinWidth="36" MaxWidth="42">
+                                                <DataGridTemplateColumn CanUserSort="False" CanUserResize="False" Header="عملیات" Width="44" MinWidth="42" MaxWidth="48">
                                                     <DataGridTemplateColumn.CellTemplate>
                                                         <DataTemplate>
                                                             <ui:Button Style="{StaticResource TableActionButton}" Margin="0" ToolTip="عملیات سطر" 
