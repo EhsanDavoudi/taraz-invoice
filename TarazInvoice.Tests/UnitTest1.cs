@@ -2256,6 +2256,12 @@ namespace TarazInvoice.Tests
             Assert.Equal(System.Windows.Visibility.Visible, visibleDraft);
             Assert.Equal(System.Windows.Visibility.Visible, visiblePending);
             Assert.Equal(System.Windows.Visibility.Collapsed, collapsedApproved);
+
+            // تست با رشته و عدد
+            Assert.Equal(System.Windows.Visibility.Collapsed, converter.Convert("Approved", typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(System.Windows.Visibility.Collapsed, converter.Convert("تأیید شده", typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(System.Windows.Visibility.Collapsed, converter.Convert((int)InvoiceStatus.Approved, typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(System.Windows.Visibility.Visible, converter.Convert("Draft", typeof(System.Windows.Visibility), null!, System.Globalization.CultureInfo.InvariantCulture));
         }
     }
 }

@@ -637,47 +637,19 @@
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
 
-                                    <!-- دکمه‌های عملیاتی مرتب و منوی شناور -->
-                                    <DataGridTemplateColumn Width="2.5*" MinWidth="240">
+                                    <!-- دکمه‌های عملیاتی فشرده و منوی ۳ نقطه -->
+                                    <DataGridTemplateColumn Width="115" MinWidth="105">
                                         <DataGridTemplateColumn.HeaderStyle>
                                             <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                                                 <Setter Property="HorizontalContentAlignment" Value="Center"/>
                                             </Style>
                                         </DataGridTemplateColumn.HeaderStyle>
                                         <DataGridTemplateColumn.Header>
-                                            <TextBlock Text="عملیات و خروجی" FontWeight="Bold" FontSize="12"/>
+                                            <TextBlock Text="عملیات" FontWeight="Bold" FontSize="12"/>
                                         </DataGridTemplateColumn.Header>
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <!-- تأیید و چاپ مستقیم (فقط در صورتی که فاکتور تأیید نشده باشد نمایش داده می‌شود) -->
-                                                    <ui:Button Style="{StaticResource TableActionButton}" Margin="2,0"
-                                                               ToolTip="تأیید پیش‌فاکتور و ارسال به چاپ" Click="BtnApproveAndPrintRow_Click"
-                                                               Visibility="{Binding Status, Converter={StaticResource NotApprovedToVisibilityConverter}}">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <ui:SymbolIcon Symbol="CheckmarkCircle20" Foreground="{StaticResource SuccessBrush}" Margin="0,0,4,0" FontSize="15"/>
-                                                            <TextBlock Text="تأیید و چاپ" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" FontSize="11" VerticalAlignment="Center"/>
-                                                        </StackPanel>
-                                                    </ui:Button>
-
-                                                    <!-- پیش‌نمایش و چاپ -->
-                                                    <ui:Button Style="{StaticResource TableActionButton}" Margin="2,0"
-                                                               ToolTip="پیش‌نمایش و چاپ پیش‌فاکتور رسمی" Click="BtnPrintPdf_Click">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <ui:SymbolIcon Symbol="Print20" Foreground="{StaticResource PrimaryBrush}" Margin="0,0,5,0" FontSize="15"/>
-                                                            <TextBlock Text="چاپ" FontSize="11" VerticalAlignment="Center"/>
-                                                        </StackPanel>
-                                                    </ui:Button>
-
-                                                    <!-- اکسل مشتری -->
-                                                    <ui:Button Style="{StaticResource TableActionButton}" Margin="2,0"
-                                                               ToolTip="خروجی فایل اکسل فقط با ستون‌های نهایی مشتری" Click="BtnExportExcel_Click">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <ui:SymbolIcon Symbol="DocumentTable20" Foreground="{StaticResource SuccessBrush}" Margin="0,0,5,0" FontSize="15"/>
-                                                            <TextBlock Text="اکسل" FontSize="11" VerticalAlignment="Center"/>
-                                                        </StackPanel>
-                                                    </ui:Button>
-
                                                     <!-- ویرایش مستقیم -->
                                                     <ui:Button Style="{StaticResource TableActionButton}" Padding="6,3" Margin="2,0"
                                                                ToolTip="ویرایش پیش‌فاکتور" Click="MenuItem_Edit_Click">
@@ -691,22 +663,51 @@
                                                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=ui:Button}, Path=Foreground}"/>
                                                     </ui:Button>
 
-                                                    <!-- سایر گزینه‌ها / منوی ۳ نقطه -->
+                                                    <!-- سایر گزینه‌ها / منوی ۳ نقطه (شامل تأیید و چاپ، چاپ، اکسل، PDF، کپی و تغییر وضعیت) -->
                                                     <ui:Button Style="{StaticResource TableActionButton}" Padding="6,3" Margin="2,0"
-                                                               ToolTip="سایر عملیات (کپی، ذخیره PDF، تغییر وضعیت)" Click="BtnMoreOptions_Click">
+                                                               ToolTip="خروجی‌ها و سایر عملیات" Click="BtnMoreOptions_Click">
                                                         <ui:SymbolIcon Symbol="MoreHorizontal20" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"/>
                                                         <ui:Button.ContextMenu>
                                                             <ContextMenu FlowDirection="RightToLeft" FontFamily="{StaticResource AppFontFamily}">
+                                                                <!-- تأیید و چاپ مستقیم (فقط در صورتی که فاکتور تأیید نشده باشد نمایش داده می‌شود) -->
+                                                                <MenuItem x:Name="MenuApproveAndPrint" Header="تأیید و چاپ پیش‌فاکتور" Click="BtnApproveAndPrintRow_Click"
+                                                                          Visibility="{Binding Status, Converter={StaticResource NotApprovedToVisibilityConverter}}">
+                                                                    <MenuItem.Icon>
+                                                                        <ui:SymbolIcon Symbol="CheckmarkCircle20" Foreground="{StaticResource SuccessBrush}"/>
+                                                                    </MenuItem.Icon>
+                                                                </MenuItem>
+
+                                                                <!-- پیش‌نمایش و چاپ -->
+                                                                <MenuItem Header="پیش‌نمایش و چاپ (PDF)" Click="BtnPrintPdf_Click">
+                                                                    <MenuItem.Icon>
+                                                                        <ui:SymbolIcon Symbol="Print20" Foreground="{StaticResource PrimaryBrush}"/>
+                                                                    </MenuItem.Icon>
+                                                                </MenuItem>
+
+                                                                <!-- خروجی اکسل مشتری -->
+                                                                <MenuItem Header="خروجی فایل اکسل مشتری" Click="BtnExportExcel_Click">
+                                                                    <MenuItem.Icon>
+                                                                        <ui:SymbolIcon Symbol="DocumentTable20" Foreground="{StaticResource SuccessBrush}"/>
+                                                                    </MenuItem.Icon>
+                                                                </MenuItem>
+
+                                                                <!-- ذخیره PDF -->
                                                                 <MenuItem Header="ذخیره فایل PDF در مسیر انتخابی..." Click="BtnExportPdf_Click">
                                                                     <MenuItem.Icon>
                                                                         <ui:SymbolIcon Symbol="DocumentPdf20" Foreground="{StaticResource DangerBrush}"/>
                                                                     </MenuItem.Icon>
                                                                 </MenuItem>
+
+                                                                <Separator/>
+
+                                                                <!-- کپی فاکتور -->
                                                                 <MenuItem Header="کپی فاکتور با شماره جدید کارشناس" Click="MenuItem_Duplicate_Click">
                                                                     <MenuItem.Icon>
                                                                         <ui:SymbolIcon Symbol="Copy20" Foreground="{StaticResource PrimaryBrush}"/>
                                                                     </MenuItem.Icon>
                                                                 </MenuItem>
+
+                                                                <!-- تغییر وضعیت پیش‌فاکتور -->
                                                                 <MenuItem Header="تغییر وضعیت پیش‌فاکتور">
                                                                     <MenuItem.Icon>
                                                                         <ui:SymbolIcon Symbol="ArrowSync20" Foreground="{StaticResource PrimaryBrush}"/>
@@ -720,6 +721,15 @@
                                                                     <MenuItem Header="پیش‌نویس" Click="MenuItem_SetStatus_Click" Tag="Draft"/>
                                                                     <MenuItem Header="در انتظار تأیید" Click="MenuItem_SetStatus_Click" Tag="Pending"/>
                                                                     <MenuItem Header="لغو شده" Click="MenuItem_SetStatus_Click" Tag="Canceled"/>
+                                                                </MenuItem>
+
+                                                                <Separator/>
+
+                                                                <!-- حذف -->
+                                                                <MenuItem Header="حذف پیش‌فاکتور" Foreground="{StaticResource DangerBrush}" Click="MenuItem_Delete_Click">
+                                                                    <MenuItem.Icon>
+                                                                        <ui:SymbolIcon Symbol="Delete20" Foreground="{StaticResource DangerBrush}"/>
+                                                                    </MenuItem.Icon>
                                                                 </MenuItem>
                                                             </ContextMenu>
                                                         </ui:Button.ContextMenu>
@@ -988,7 +998,10 @@
 
                                                 <StackPanel Grid.Column="3" Margin="3,0,4,0">
                                                     <TextBlock Text="قیمت خام (ریال):" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                                    <ui:TextBox x:Name="TxtQuickItemPrice" Text="0"/>
+                                                    <ui:TextBox x:Name="TxtQuickItemPrice" Text="0" TextAlignment="Center" 
+                                                                TextChanged="TxtQuickItemPrice_TextChanged" 
+                                                                GotFocus="TxtQuickItemPrice_GotFocus" 
+                                                                LostFocus="TxtQuickItemPrice_LostFocus"/>
                                                 </StackPanel>
 
                                                 <StackPanel Grid.Column="4" Margin="3,0,4,0">
@@ -1734,7 +1747,7 @@
                                         <ComboBox x:Name="CmbStorageUnit" Height="36" HorizontalAlignment="Stretch" IsEditable="True" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="قیمت خام پایه (ریال):" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
-                                        <ui:TextBox x:Name="TxtStoragePrice" Text="0" Margin="0,0,0,8"/>
+                                        <ui:TextBox x:Name="TxtStoragePrice" Text="0" TextChanged="TxtQuickItemPrice_TextChanged" GotFocus="TxtQuickItemPrice_GotFocus" LostFocus="TxtQuickItemPrice_LostFocus" Margin="0,0,0,8"/>
 
                                         <TextBlock Text="دسته‌بندی / گروه:" FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,2"/>
                                         <ui:TextBox x:Name="TxtStorageCategory" PlaceholderText="مثلاً: ابزار دقیق، قطعات برق..." Margin="0,0,0,8"/>

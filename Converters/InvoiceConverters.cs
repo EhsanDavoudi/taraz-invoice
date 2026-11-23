@@ -177,6 +177,14 @@ namespace TarazInvoice.Converters
             {
                 return System.Windows.Visibility.Collapsed;
             }
+            if (value is string s && (s.Equals("Approved", StringComparison.OrdinalIgnoreCase) || s.Contains("تأیید") || s.Contains("تایید")))
+            {
+                return System.Windows.Visibility.Collapsed;
+            }
+            if (value is int i && i == (int)InvoiceStatus.Approved)
+            {
+                return System.Windows.Visibility.Collapsed;
+            }
             return System.Windows.Visibility.Visible;
         }
 

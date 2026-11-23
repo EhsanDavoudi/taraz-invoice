@@ -1131,6 +1131,20 @@ namespace TarazInvoice
             if (sender is FrameworkElement btn && btn.ContextMenu != null)
             {
                 btn.ContextMenu.PlacementTarget = btn;
+                btn.ContextMenu.DataContext = btn.DataContext;
+
+                if (btn.DataContext is ProformaInvoice invoice)
+                {
+                    bool isApproved = invoice.Status == InvoiceStatus.Approved;
+                    foreach (var item in btn.ContextMenu.Items)
+                    {
+                        if (item is System.Windows.Controls.MenuItem mi && mi.Name == "MenuApproveAndPrint")
+                        {
+                            mi.Visibility = isApproved ? Visibility.Collapsed : Visibility.Visible;
+                        }
+                    }
+                }
+
                 btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
                 btn.ContextMenu.IsOpen = true;
             }
@@ -2426,6 +2440,71 @@ namespace TarazInvoice
             }
         }
 
+        private bool _isFormattingQuickPrice = false;
+
+        private void TxtQuickItemPrice_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isFormattingQuickPrice) return;
+
+            if (sender is System.Windows.Controls.TextBox tb)
+            {
+                _isFormattingQuickPrice = true;
+                try
+                {
+                    int caretIndex = tb.CaretIndex;
+                    int oldLength = tb.Text?.Length ?? 0;
+
+                    string raw = tb.Text ?? "";
+                    raw = raw.Replace("۰", "0").Replace("۱", "1").Replace("۲", "2").Replace("۳", "3").Replace("۴", "4")
+                             .Replace("۵", "5").Replace("۶", "6").Replace("۷", "7").Replace("۸", "8").Replace("۹", "9")
+                             .Replace(",", "").Replace("،", "").Replace(" ", "").Trim();
+
+                    if (string.IsNullOrWhiteSpace(raw))
+                    {
+                        tb.Text = "";
+                    }
+                    else if (decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal val))
+                    {
+                        string formatted = val.ToString("N0", CultureInfo.InvariantCulture);
+                        if (tb.Text != formatted)
+                        {
+                            tb.Text = formatted;
+                            int diff = formatted.Length - oldLength;
+                            int newCaret = caretIndex + diff;
+                            if (newCaret >= 0 && newCaret <= formatted.Length)
+                            {
+                                tb.CaretIndex = newCaret;
+                            }
+                            else
+                            {
+                                tb.CaretIndex = formatted.Length;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    _isFormattingQuickPrice = false;
+                }
+            }
+        }
+
+        private void TxtQuickItemPrice_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox tb && tb.Text == "0")
+            {
+                tb.SelectAll();
+            }
+        }
+
+        private void TxtQuickItemPrice_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.TextBox tb && string.IsNullOrWhiteSpace(tb.Text))
+            {
+                tb.Text = "0";
+            }
+        }
+
         private void BtnQuickAddItem_Click(object sender, RoutedEventArgs e)
         {
             string name = TxtQuickItemName.Text?.Trim() ?? "";
@@ -2442,7 +2521,9 @@ namespace TarazInvoice
             }
 
             string unit = !string.IsNullOrWhiteSpace(CmbQuickItemUnit.Text) ? CmbQuickItemUnit.Text.Trim() : "عدد";
-            string priceText = TxtQuickItemPrice.Text?.Replace(",", "").Trim() ?? "0";
+            string priceText = TxtQuickItemPrice.Text?.Replace(",", "").Replace("،", "").Replace(" ", "").Trim() ?? "0";
+            priceText = priceText.Replace("۰", "0").Replace("۱", "1").Replace("۲", "2").Replace("۳", "3").Replace("۴", "4")
+                                 .Replace("۵", "5").Replace("۶", "6").Replace("۷", "7").Replace("۸", "8").Replace("۹", "9");
             if (!decimal.TryParse(priceText, out decimal price) || price < 0)
             {
                 price = 0;
